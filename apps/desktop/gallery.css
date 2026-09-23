@@ -1,0 +1,24 @@
+html:has(.gallery),
+body:has(.gallery) {
+  overflow: auto;
+  height: auto;
+}
+.gallery {
+  padding: var(--space-8);
+}
+.gallery header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-8);
+}
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-8);
+}
+@media (max-width: 1000px) {
+  .gallery-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

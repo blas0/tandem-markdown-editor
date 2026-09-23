@@ -1,0 +1,818 @@
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+.window-drag {
+  height: 36px;
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 10;
+  user-select: none;
+  background: var(--canvas);
+}
+.app-shell {
+  position: relative;
+  display: flex;
+  height: 100%;
+  padding-top: 36px;
+}
+.navigation-scrim,
+.review-scrim,
+.drawer-close {
+  display: none;
+}
+.boot {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.navigation {
+  display: flex;
+  flex-direction: column;
+  width: var(--nav-width);
+  flex-shrink: 0;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  padding: var(--space-4) var(--space-3);
+}
+.navigation-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 52px;
+  padding: var(--space-4) var(--space-2);
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.folder-row {
+  margin-inline-start: calc(var(--folder-depth, 0) * var(--space-3));
+}
+/* Keyboard focus never travels through the navigation with Tab, and the panel
+   clips rings drawn at row edges, so the sidebar shows no focus ring at all. */
+.navigation :is(button, [role="treeitem"], a, [tabindex]):focus-visible {
+  outline: none;
+  --tw-ring-shadow: 0 0 transparent;
+  --tw-ring-offset-shadow: 0 0 transparent;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 22px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: -0.7px;
+  padding: var(--space-2) var(--space-2) var(--space-6);
+}
+.brand-mark {
+  font: 32px / 32px var(--mono-font);
+  color: var(--muted-foreground);
+}
+.sidebar-label {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  padding: var(--space-2);
+  font-weight: 500;
+}
+.nav-scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  /* The sidebar still scrolls; its edge fades stand in for a scrollbar. */
+  scrollbar-width: none;
+}
+.nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+.main-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-8);
+  min-height: 84px;
+}
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.folder-tree {
+  overflow: visible;
+}
+.folder-tree .folder-tree {
+  padding-left: var(--space-3);
+}
+.onboarding {
+  width: min(720px, calc(100% - 64px));
+  margin: auto;
+  padding: var(--space-8) 0;
+  max-height: 100%;
+  overflow: auto;
+}
+.onboarding .brand {
+  max-width: 140px;
+  padding: 0;
+}
+.provider-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+.editor-header {
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.editing-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.writing-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.editor-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.review-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  background: var(--sidebar);
+}
+.review-heading {
+  padding: var(--space-4);
+}
+.review-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-4);
+  flex: 1;
+}
+.review-group {
+  margin-bottom: var(--space-4);
+}
+@media (max-width: 1100px) {
+  .resizable-panel[data-side="right"] {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 20;
+    box-shadow: var(--popover-shadow);
+  }
+  .resizable-panel.editor-navigation {
+    position: absolute;
+    top: 36px;
+    bottom: 0;
+    left: 0;
+    z-index: 31;
+    box-shadow: var(--popover-shadow);
+  }
+  .navigation-scrim,
+  .review-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 19;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    background: var(--overlay);
+  }
+  .navigation-scrim {
+    top: 36px;
+    z-index: 30;
+  }
+  .drawer-close {
+    display: inline-flex;
+  }
+  .page-toolbar {
+    padding: var(--space-4);
+  }
+  .navigation {
+    width: 190px;
+  }
+}
+@media (max-height: 700px) {
+  .onboarding {
+    padding: var(--space-4) 0;
+  }
+}
+
+/* A single titlebar owns both panel toggles and continues each panel's solid fill. */
+.window-titlebar {
+  position: fixed;
+  inset: 0 0 auto;
+  height: var(--titlebar-height);
+  z-index: 40;
+  background: var(--canvas);
+  user-select: none;
+}
+.titlebar-left-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  border-right: 1px solid var(--border);
+  background: var(--sidebar);
+  overflow: hidden;
+  opacity: 0;
+}
+.window-titlebar[data-left="true"] .titlebar-left-fill {
+  width: var(--nav-width);
+  opacity: 1;
+}
+.window-titlebar .titlebar-navigation,
+.window-titlebar .titlebar-review {
+  position: absolute;
+  top: 4px;
+}
+.window-titlebar .titlebar-navigation {
+  left: 84px;
+}
+.window-titlebar .titlebar-review {
+  right: 10px;
+}
+.app-shell {
+  padding-top: var(--titlebar-height);
+}
+.nav-document-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.tree-document-spacer {
+  width: 28px;
+  flex-shrink: 0;
+}
+.review-actions {
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.review-heading h2 {
+  flex: 1;
+}
+.settings-layout {
+  display: grid;
+  grid-template-columns: 156px minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+}
+/* The sidebar runs the full dialog height and carries the Settings title above its views. */
+.settings-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+}
+.settings-title {
+  padding: var(--space-6) var(--space-6) var(--space-1);
+}
+.settings-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+}
+.settings-navigation [role="tab"] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  text-align: left;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.settings-navigation [role="tab"][aria-selected="true"],
+.settings-navigation [role="tab"]:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.settings-navigation [role="tab"]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.settings-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+/* Sections own the padding, keeping the footer inside the content column. */
+.settings-dialog [data-slot="dialog-panel"] {
+  padding: 0;
+  overflow: hidden;
+}
+.settings-dialog [data-slot="scroll-area-content"],
+.settings-dialog [data-slot="dialog-panel"] {
+  height: 100%;
+}
+/* Content starts below the close button, which sits in the top corner of this column. */
+.settings-content {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-12) var(--space-6) 0;
+}
+@media (max-width: 1100px) {
+  .resizable-panel.editor-navigation {
+    top: var(--titlebar-height);
+  }
+  .navigation-scrim {
+    top: var(--titlebar-height);
+  }
+  .navigation {
+    width: 100%;
+  }
+}
+.folder-tree .folder-row {
+  height: 28px;
+  min-height: 28px;
+  margin: 0;
+}
+@media (max-width: 1100px) {
+  .resizable-panel[data-side="right"] {
+    z-index: 32;
+  }
+}
+
+.navigation {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Rows keep their default pointer on hover; the grabbing hand appears only once a move starts. */
+.navigation :where([draggable="true"]:not([data-immovable]):active) > .navigation-item,
+.navigation [data-drop-position] > .navigation-item,
+.navigation .sidebar-section[data-drop-position] > button {
+  cursor: grabbing;
+}
+.navigation [draggable="true"]:not([data-immovable]):active {
+  cursor: grabbing;
+  opacity: 0.72;
+}
+
+html[data-workspace-dragging="true"],
+html[data-workspace-dragging="true"] *,
+html[data-workspace-dragging="true"] .navigation [draggable] > .navigation-item {
+  cursor: grabbing;
+}
+
+/* Roots sit flush; nested folders take one indent and documents two, at any depth. */
+.folder-tree .folder-row {
+  margin-left: calc(var(--folder-depth) * 16px);
+}
+/* Every nested row draws its segment of one guide, on a single axis under the root icon,
+   in a lighter strength of the color of the folder it sits in. */
+.folder-tree .folder-row[data-tree-guide] {
+  position: relative;
+}
+.folder-tree .folder-row[data-tree-guide]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: calc(17px - var(--folder-depth) * 16px);
+  width: 1px;
+  background: color-mix(
+    in srgb,
+    var(--tree-guide-color, var(--sidebar-foreground)) 40%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.navigation [data-drop-position="before"],
+.navigation [data-drop-position="after"] {
+  position: relative;
+}
+.navigation [data-drop-position="before"]::after,
+.navigation [data-drop-position="after"]::after {
+  content: "";
+  position: absolute;
+  inset: -1px 0 auto;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ring);
+  pointer-events: none;
+  z-index: 1;
+}
+.navigation [data-drop-position="after"]::after {
+  top: auto;
+  bottom: -1px;
+}
+.navigation .folder-row[data-drop-position="inside"] > .navigation-item,
+.navigation .sidebar-section[data-drop-position="inside"] > button {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--ring) 12%, var(--sidebar));
+}
+.settings-dialog {
+  width: min(960px, calc(100vw - 48px));
+  max-width: calc(100vw - 48px);
+  /* A fixed height keeps the dialog still when switching views; each view scrolls. */
+  height: min(600px, calc(100dvh - 64px));
+  max-height: calc(100dvh - 64px);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+.document-breadcrumb {
+  padding: var(--space-2) var(--space-6) 0;
+}
+
+.editor-header {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.annotation-controls {
+  min-height: 0;
+  overflow-y: auto;
+  flex-shrink: 1;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.thinking-trigger {
+  width: 100%;
+  justify-content: flex-start;
+}
+.thinking-details {
+  padding: 8px 0 4px 20px;
+}
+.review-diff-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.review-diff-table th {
+  text-align: left;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  padding: 0 0 8px;
+}
+.review-diff-table td {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+.review-heading,
+.review-actions {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* Sidebar rows share the outer navigation scroll surface. */
+.folder-tree .folder-row {
+  height: 28px;
+  min-height: 28px;
+}
+.sidebar-section {
+  margin-bottom: var(--space-3);
+}
+.sidebar-section .nav-document-row {
+  height: 28px;
+  min-height: 28px;
+}
+
+/* The footer retains the sidebar fill and keyline within the content column. */
+.settings-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--sidebar);
+  border-top: 1px solid var(--border);
+}
+.settings-version {
+  font-variant-numeric: tabular-nums;
+}
+/* A chosen export folder can be a long path; wrap it instead of widening the row. */
+.settings-export-path {
+  max-width: 22rem;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.settings-brand {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+.settings-brand img {
+  display: block;
+  max-width: 100%;
+  height: 16.8px;
+  width: auto;
+}
+
+/* Separate navigation sections from controls and their focus rings. */
+.navigation > [data-slot="separator"],
+.nav-scroll > [data-slot="separator"] {
+  margin-block: var(--space-3);
+  flex-shrink: 0;
+}
+.navigation-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.connections-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.connections-group .provider-grid {
+  width: 100%;
+  align-items: start;
+}
+
+.navigation-create {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1) var(--space-3);
+}
+
+.canvas-toolbar-anchor {
+  position: fixed;
+  top: calc(var(--review-selection-top) - var(--space-2));
+  left: var(--review-selection-left);
+  width: max-content;
+  max-width: calc(100% - var(--space-4) * 2);
+  transform: translate(-50%, -100%);
+  z-index: 10;
+  pointer-events: none;
+}
+.writing-area .document-scroll {
+  padding-bottom: var(--space-8);
+  scroll-padding-bottom: var(--space-8);
+}
+/* The model picker, cadence action and repeat-cadence hint share one tinted Coss toolbar surface. */
+.canvas-toolbar {
+  --toolbar-radius: var(--radius-xl);
+  --toolbar-inset: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  gap: var(--space-1);
+  padding: var(--toolbar-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--toolbar-radius);
+  overflow: visible;
+  background: linear-gradient(var(--secondary), var(--secondary)) var(--popover);
+  box-shadow:
+    0 12px 24px -12px --alpha(var(--color-black) / 24%),
+    var(--popover-shadow);
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.canvas-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: var(--space-1);
+}
+.canvas-toolbar-model-surface {
+  display: flex;
+  min-width: 0;
+}
+.canvas-toolbar-model-effort {
+  display: inline-flex;
+  transform: translateY(-1px);
+}
+.canvas-toolbar-actions {
+  display: flex;
+  align-items: center;
+}
+/* Enter: the toolbar starts faded and low, then settles into place. */
+@starting-style {
+  .canvas-toolbar[data-state="open"] {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.canvas-toolbar[data-state="closed"] {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .canvas-toolbar {
+    transition: none;
+  }
+}
+.review-selection-anchor {
+  position: fixed;
+  left: clamp(180px, var(--review-selection-left), calc(100vw - 180px));
+  top: max(calc(var(--titlebar-height) + 96px), calc(var(--review-selection-top) - var(--space-2)));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: calc(100vw - var(--space-8));
+  transform: translate(-50%, -100%);
+}
+.review-selection-anchor .canvas-toolbar-anchor {
+  position: static;
+  max-width: 100%;
+  transform: none;
+}
+.review-selection-anchor .canvas-toolbar-model-surface {
+  max-width: calc(100% - var(--space-8));
+}
+/* The repeat-cadence hint reads underneath the model picker and the run button, on their surface. */
+.canvas-toolbar-hint {
+  display: flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2) var(--space-1);
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.canvas-toolbar-hint-cadence {
+  max-width: 12rem;
+  gap: var(--space-1);
+  padding-inline: calc(var(--space-1) + 1px);
+}
+
+@media (max-width: 640px) {
+  .settings-layout {
+    grid-template-columns: 108px minmax(0, 1fr);
+  }
+  .settings-navigation {
+    padding: var(--space-2);
+  }
+  .settings-title {
+    padding-inline: var(--space-3);
+  }
+  .settings-navigation [role="tab"] {
+    padding-inline: var(--space-1);
+  }
+  .settings-content {
+    padding-inline: var(--space-4);
+  }
+}
+
+/* A dragged sidebar item turns Archive into a labelled, dashed drop target. */
+.navigation-footer .archive-drop {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--destructive) 56%, transparent);
+  animation: archive-drop-in 150ms ease-out;
+}
+.navigation-footer .archive-drop[data-drop-active] {
+  border-color: var(--destructive);
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+}
+@keyframes archive-drop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navigation-footer .archive-drop {
+    animation: none;
+  }
+}
+
+/* Editor panes split the main area like terminal panes; each fills its share of the grid. */
+.pane-grid {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.pane {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  outline: none;
+}
+.pane[data-edge-left] {
+  border-left: 1px solid var(--border);
+}
+.pane[data-edge-top] {
+  border-top: 1px solid var(--border);
+}
+/* The focused pane is marked by a thin ring once there is more than one. */
+.pane[data-focused]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ring) 55%, transparent);
+  z-index: 1;
+}
+/* In split view the focused pane's breadcrumb, header and toolbar sit above every pane. */
+.pane-chrome {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pane-chrome > div:empty {
+  display: none;
+}
+/* Dividers between sibling panes drag to share the group's space, like terminal panes. */
+.pane-divider {
+  position: absolute;
+  margin: 0;
+  border: 0;
+  z-index: 30;
+  touch-action: none;
+}
+.pane-divider[data-orientation="vertical"] {
+  width: 8px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+}
+.pane-divider[data-orientation="horizontal"] {
+  height: 8px;
+  transform: translateY(-50%);
+  cursor: row-resize;
+}
+.pane-divider::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: var(--ring);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.pane-divider[data-orientation="vertical"]::after {
+  width: 2px;
+}
+.pane-divider[data-orientation="horizontal"]::after {
+  height: 2px;
+}
+.pane-divider:hover::after,
+.pane-divider:focus-visible::after,
+:root[data-panel-resizing="pane-column"] .pane-divider[data-orientation="vertical"]::after,
+:root[data-panel-resizing="pane-row"] .pane-divider[data-orientation="horizontal"]::after {
+  opacity: 1;
+}
+.pane-divider:focus-visible {
+  outline: none;
+}
+:root[data-panel-resizing="pane-row"],
+:root[data-panel-resizing="pane-row"] * {
+  cursor: row-resize;
+}
