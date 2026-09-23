@@ -1,0 +1,315 @@
+.editor-adapter {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+/* Find controls share layout; Coss owns toolbar and control presentation. */
+.find-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+}
+.document-scroll {
+  position: relative;
+  overflow: auto;
+  flex: 1;
+  padding: var(--space-8);
+  background: var(--canvas);
+}
+.source-scroll {
+  padding: var(--space-4);
+}
+.source-editor {
+  max-width: 960px;
+  margin: auto;
+  min-height: 100%;
+}
+.cm-editor {
+  font: 14px / 22px var(--mono-font);
+  background: var(--document);
+  color: var(--text);
+  min-height: 100%;
+}
+.cm-editor.cm-focused {
+  outline: none;
+}
+.cm-editor .cm-content {
+  padding: var(--space-6) 0;
+  caret-color: var(--text);
+}
+.cm-editor .cm-gutters {
+  background: var(--canvas);
+  color: var(--muted-foreground);
+  border-color: var(--border);
+}
+.cm-editor .cm-activeLine {
+  background: var(--sidebar);
+}
+.cm-editor .cm-activeLineGutter {
+  background: var(--border);
+}
+[data-theme] .cm-editor .cm-selectionBackground,
+[data-theme] .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: var(--editor-selection-bg);
+}
+.cm-editor .cm-line {
+  padding-left: var(--space-4);
+}
+@media (max-width: 1100px) {
+  .document-scroll {
+    padding: var(--space-4);
+  }
+}
+
+.format-overflow {
+  display: none;
+}
+@media (max-width: 1100px) {
+  [data-slot="toolbar"] .format-secondary {
+    display: none;
+  }
+  .format-overflow {
+    display: block;
+  }
+}
+.source-scroll .cm-editor {
+  font: 16px / 26px var(--ui-font);
+}
+.cm-pretty-bold {
+  font-weight: 700;
+}
+.cm-pretty-italic {
+  font-style: italic;
+}
+.cm-pretty-strike {
+  text-decoration: line-through;
+}
+.cm-pretty-underline {
+  text-decoration: underline;
+}
+.cm-pretty-code {
+  font-family: var(--mono-font);
+  background: var(--editor-code-bg);
+  border-radius: var(--space-1);
+}
+.cm-pretty-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--focus);
+}
+.cm-heading-1 {
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: 600;
+}
+.cm-heading-2 {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+}
+.cm-heading-3,
+.cm-heading-4,
+.cm-heading-5,
+.cm-heading-6 {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.cm-editor .cm-content .cm-line.cm-quote-line {
+  border-left: 1px solid var(--control-border);
+  padding-left: var(--space-4);
+  color: var(--muted-foreground);
+}
+.cm-list-mark,
+.cm-task-mark {
+  color: var(--muted-foreground);
+}
+.cm-list-mark.cm-pretty-bullet {
+  position: relative;
+  color: transparent;
+}
+.cm-pretty-bullet::before {
+  content: "•";
+  position: absolute;
+  inset-inline-start: 0;
+  color: var(--muted-foreground);
+}
+.cm-table-cell {
+  display: inline-block;
+  min-width: 100px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+}
+.cm-table-row {
+  white-space: nowrap;
+}
+.cm-table-divider {
+  font-size: 0;
+  line-height: 1px;
+  height: 1px;
+}
+.cm-pretty-image {
+  display: inline-block;
+  max-width: 100%;
+  cursor: text;
+}
+.cm-pretty-image img {
+  max-width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.source-scroll .cm-scroller {
+  font: 16px / 26px var(--ui-font);
+}
+.cm-literal-code {
+  font-family: var(--mono-font);
+}
+
+.cm-editor .cm-cursor,
+.cm-editor .cm-dropCursor {
+  border-left-color: var(--text);
+}
+.cm-format-marker {
+  color: color-mix(in srgb, var(--text) 50%, var(--document));
+}
+.find-current {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+.cm-literal-code {
+  background: var(--editor-code-bg);
+}
+.cm-editor .cm-content::selection,
+.cm-editor .cm-content *::selection {
+  color: var(--selection-text);
+  background: transparent;
+}
+
+.inline-review {
+  margin: var(--space-2) var(--space-4) var(--space-4);
+  border-left: 2px solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  font: 14px / 22px var(--ui-font);
+  white-space: normal;
+}
+/* The review-wide decisions close the thread, so they read as its footer. */
+.inline-review-thread-actions {
+  margin: 0 var(--space-4) var(--space-4);
+  border-top: 1px solid var(--border);
+  padding: var(--space-3);
+  font: 14px / 22px var(--ui-font);
+  white-space: normal;
+}
+
+/* The rendered preview shares the editor's measure and type, with reading-view spacing. */
+.markdown-preview {
+  max-width: 960px;
+  margin: auto;
+  padding: var(--space-6) var(--space-4);
+  font: 16px / 26px var(--ui-font);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.markdown-preview > :first-child {
+  margin-top: 0;
+}
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
+  margin: var(--space-6) 0 var(--space-3);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.markdown-preview h1 {
+  font-size: 30px;
+}
+.markdown-preview h2 {
+  font-size: 24px;
+}
+.markdown-preview h3,
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
+  font-size: 20px;
+}
+.markdown-preview p,
+.markdown-preview ul,
+.markdown-preview ol,
+.markdown-preview blockquote,
+.markdown-preview pre,
+.markdown-preview table {
+  margin: 0 0 var(--space-4);
+}
+.markdown-preview ul,
+.markdown-preview ol {
+  padding-left: var(--space-6);
+}
+.markdown-preview li > ul,
+.markdown-preview li > ol {
+  margin-bottom: 0;
+}
+.markdown-preview li:has(> .markdown-preview-task) {
+  list-style: none;
+  margin-left: calc(var(--space-6) * -1);
+}
+.markdown-preview li > .markdown-preview-task {
+  margin-right: var(--space-2);
+  vertical-align: -0.15em;
+}
+.markdown-preview a {
+  color: var(--focus);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.markdown-preview code {
+  font-family: var(--mono-font);
+  font-size: 0.9em;
+  background: var(--editor-code-bg);
+  border-radius: var(--space-1);
+  padding: 0 0.25em;
+}
+.markdown-preview pre {
+  padding: var(--space-3) var(--space-4);
+  background: var(--editor-code-bg);
+  border-radius: var(--radius-md);
+  overflow: auto;
+}
+.markdown-preview pre code {
+  padding: 0;
+  background: none;
+}
+.markdown-preview blockquote {
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--border);
+  color: var(--muted-foreground);
+}
+.markdown-preview hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: var(--space-6) 0;
+}
+.markdown-preview table {
+  border-collapse: collapse;
+}
+.markdown-preview th,
+.markdown-preview td {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.markdown-preview img {
+  max-width: 100%;
+  height: auto;
+}
+.preview-image-caption {
+  color: var(--muted-foreground);
+}

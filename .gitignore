@@ -1,0 +1,11 @@
+node_modules/
+dist/
+target/
+.DS_Store
+test-results/
+playwright-report/
+.tandem-dev/
+src-tauri/binaries/
+src-tauri/resources/
+*.log
+.claude/

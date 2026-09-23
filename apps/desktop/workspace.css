@@ -1,0 +1,68 @@
+/* Double-clicking here creates a document, so the region never starts a text selection. */
+.workspace-empty {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.workspace-empty-hint {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+.cadence-navigation {
+  margin-block: var(--space-2);
+}
+.cadence-navigation .nav-document-row {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+.archive-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.archive-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+}
+.archive-title {
+  margin: 0;
+}
+.archive-scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  padding: var(--space-4) var(--space-6);
+}
+.archive-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.archive-list > li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+}
+.archive-list > li > svg {
+  flex-shrink: 0;
+}
+.archive-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.archive-order {
+  font-size: 12px;
+}

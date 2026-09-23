@@ -1,0 +1,1 @@
+{"main":{"identifier":"main","description":"Tandem main window","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-close","core:window:allow-start-dragging","core:window:allow-destroy"]}}

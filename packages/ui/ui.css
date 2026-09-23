@@ -1,0 +1,348 @@
+/* Product-composition rules only. Shared controls come from packages/ui/coss and
+   the Tailwind preflight in tokens.css supplies the base reset. */
+
+.resizable-panel {
+  position: relative;
+  width: var(--panel-width);
+  flex-shrink: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.resizable-panel[data-resizing="true"] {
+  transition: none;
+}
+.resizable-panel > aside {
+  width: var(--panel-width);
+  height: 100%;
+}
+.resizable-panel[data-resizing="true"] > aside {
+  pointer-events: none;
+}
+.resizable-panel[data-open="false"] {
+  width: 0;
+  pointer-events: none;
+}
+.panel-resizer {
+  border: 0;
+  margin: 0;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 25;
+  touch-action: none;
+}
+.resizable-panel[data-side="right"] > .panel-resizer {
+  left: 0;
+  right: auto;
+}
+.panel-resizer:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+/* The pointer crosses panel content while dragging; keep the resize cursor everywhere. */
+:root[data-panel-resizing],
+:root[data-panel-resizing] * {
+  cursor: col-resize;
+}
+
+/* Scroll fade: the far edge fades at rest, both edges fade mid-scroll, and an edge
+   sharpens once reached. Scroll-driven animations drive it; older engines keep the
+   static fade. Modeled on shadcn/ui's scroll-fade utility. */
+@property --scroll-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.scroll-fade {
+  --scroll-fade-size: 1.5rem;
+  --scroll-fade-reveal: 48px;
+  --scroll-fade-bottom: var(--scroll-fade-size);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-black) var(--scroll-fade-top),
+    var(--color-black) calc(100% - var(--scroll-fade-bottom)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-black) var(--scroll-fade-top),
+    var(--color-black) calc(100% - var(--scroll-fade-bottom)),
+    transparent
+  );
+}
+@supports (animation-timeline: scroll()) {
+  .scroll-fade {
+    animation:
+      scroll-fade-top linear both,
+      scroll-fade-bottom linear both;
+    animation-timeline: scroll(self block), scroll(self block);
+    animation-range:
+      0 var(--scroll-fade-reveal),
+      calc(100% - var(--scroll-fade-reveal)) 100%;
+  }
+}
+@keyframes scroll-fade-top {
+  from {
+    --scroll-fade-top: 0px;
+  }
+  to {
+    --scroll-fade-top: var(--scroll-fade-size);
+  }
+}
+@keyframes scroll-fade-bottom {
+  from {
+    --scroll-fade-bottom: var(--scroll-fade-size);
+  }
+  to {
+    --scroll-fade-bottom: 0px;
+  }
+}
+
+.t-icon-swap {
+  position: relative;
+  display: inline-grid;
+}
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  display: flex;
+  transition:
+    opacity 250ms ease-in-out,
+    filter 250ms ease-in-out,
+    transform 250ms ease-in-out;
+}
+.t-icon-swap[data-state="a"] [data-icon="a"],
+.t-icon-swap[data-state="b"] [data-icon="b"] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+.t-icon-swap[data-state="a"] [data-icon="b"],
+.t-icon-swap[data-state="b"] [data-icon="a"] {
+  opacity: 0;
+  filter: blur(2px);
+  transform: scale(0.25);
+}
+
+/* Layout only: the Coss ghost button supplies colors and borders. */
+.navigation-item {
+  justify-content: flex-start;
+  width: 100%;
+  text-align: left;
+  color: var(--sidebar-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.folder-row > .navigation-item,
+.nav-document-row > .navigation-item {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  /* Rows are 28px; a 24px fill leaves 4px between an active row and a hovered neighbor. */
+  height: 24px;
+  min-height: 24px;
+}
+.navigation-item > span:not(.t-icon-swap) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navigation-item > .t-icon-swap {
+  flex-shrink: 0;
+  overflow: visible;
+}
+.navigation-item > svg,
+.navigation-item .t-icon-swap,
+.document-file-icon {
+  color: var(--sidebar-foreground);
+}
+/* The open document, its folder chain and its folder-mates read at full strength.
+   Text and icons only; hover and active fills are unchanged. */
+.navigation-item[data-related],
+.navigation-item[data-related] > svg,
+.navigation-item[data-related] .t-icon-swap,
+.navigation-item[data-related] .document-file-icon {
+  color: var(--sidebar-accent-foreground);
+}
+/* A recolored folder keeps its chosen shade; related to the open document, it takes its
+   family's darker tint in light mode, as names do. On the dark sidebar a darker shade would
+   fade, so the chosen shade stays. */
+.navigation-item [data-folder-icon] {
+  color: var(--folder-icon);
+}
+.navigation-item[data-related] [data-folder-icon] {
+  color: var(--folder-icon-tint);
+}
+:root[data-theme="dark"] .navigation-item[data-related] [data-folder-icon] {
+  color: var(--folder-icon);
+}
+.document-file-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: url("../../document-icons/markdown-document-black.svg") center / contain no-repeat;
+  mask: url("../../document-icons/markdown-document-black.svg") center / contain no-repeat;
+}
+.navigation-item .t-icon-swap svg {
+  margin-inline: 0;
+}
+/* Pointer focus must not keep hover controls visible after a click. */
+@media (hover: hover) and (pointer: fine) {
+  .folder-row .sidebar-expand-icon,
+  .folder-row > button:not(.navigation-item),
+  .nav-document-row > button:not(.navigation-item) {
+    opacity: 0;
+  }
+  .folder-row:is(:hover, :focus-visible, :has(:focus-visible)) .sidebar-expand-icon,
+  .folder-row:is(:hover, :focus-visible, :has(:focus-visible)) > button:not(.navigation-item),
+  .nav-document-row:is(:hover, :has(:focus-visible)) > button:not(.navigation-item),
+  .folder-row > button[aria-expanded="true"],
+  .nav-document-row > button[aria-expanded="true"] {
+    opacity: 1;
+  }
+}
+
+.inline-title-wrap {
+  min-width: 0;
+  max-width: 480px;
+  flex: 1;
+}
+.document-title {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+  overflow: hidden;
+}
+.document-title > span {
+  display: block;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+}
+.title-overflows:is(:hover, :focus-visible) > span {
+  animation: title-pan 7s ease-in-out infinite alternate;
+}
+@keyframes title-pan {
+  0%,
+  15% {
+    transform: translateY(0);
+  }
+  85%,
+  100% {
+    transform: translateX(calc(-1 * var(--title-overflow)));
+  }
+}
+
+.diff {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+.diff-label {
+  display: block;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  margin-bottom: var(--space-1);
+}
+.diff ins {
+  background: var(--add-bg);
+  color: var(--add);
+  text-decoration: underline;
+}
+.diff del {
+  background: var(--remove-bg);
+  color: var(--destructive-foreground);
+  text-decoration: line-through;
+}
+.review-location {
+  white-space: normal;
+  text-align: left;
+  min-width: 0;
+}
+
+.document-file-icon {
+  filter: invert(1) brightness(0.9) invert(1);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+[data-theme="dark"] .document-file-icon {
+  filter: brightness(0.9) invert(1);
+}
+
+.effort-bars {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.effort-bars > span {
+  width: 2px;
+  border-radius: 1px;
+}
+.effort-ultra > span {
+  animation: effort-rainbow 240ms linear infinite;
+}
+@keyframes effort-rainbow {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+.cadence-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cadence-picker > * > [data-slot="button"] {
+  justify-content: flex-start;
+  flex: 1;
+}
+.cadence-picker [data-slot="checkbox"] + [data-slot="label"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+  .t-icon-swap .t-icon,
+  .resizable-panel {
+    transition: none;
+  }
+  .effort-ultra > span,
+  .title-overflows:is(:hover, :focus-visible) > span {
+    animation: none;
+  }
+  .document-title > span {
+    width: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
