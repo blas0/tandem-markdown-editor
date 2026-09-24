@@ -27,7 +27,7 @@ bun run dev
 
 ## Checks
 
-`bun run validate` runs the local gate. The individual checks are also available:
+`bun run validate` runs the local gate on Node 26.3.1, the version the app bundles. `.nvmrc` names it: run `nvm install` once, and validation finds it even when your shell uses another Node. The individual checks are also available:
 
 ```sh
 bun run typecheck

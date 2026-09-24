@@ -1,3 +1,4 @@
+import { pinnedNodeBin, pinnedNodeVersion } from './node-runtime';
 import { recordValidatedTree, workingTree } from './validated-tree';
 import { parseValidationMode, runValidation } from './validation';
 
@@ -7,6 +8,10 @@ if (mode === 'full' && (process.platform !== 'darwin' || process.arch !== 'arm64
 }
 process.chdir(new URL('..', import.meta.url).pathname);
 console.log(`Tandem validation: ${mode}`);
+const nodeVersion = pinnedNodeVersion();
+const nodeBin = pinnedNodeBin(nodeVersion);
+const PATH = nodeBin ? `${nodeBin}:${process.env.PATH ?? ''}` : process.env.PATH;
+console.log(`Node ${nodeVersion}${nodeBin ? ` from ${nodeBin}` : ''}`);
 const tree = mode === 'full' ? workingTree() : null;
 await runValidation(mode, async (step) => {
   const started = Date.now();
@@ -16,7 +21,7 @@ await runValidation(mode, async (step) => {
   const child = Bun.spawn(step.command, {
     stdout: 'inherit',
     stderr: 'inherit',
-    env: { ...process.env, CI: 'true', TANDEM_LIVE: '0', CARGO_TERM_COLOR: 'never' },
+    env: { ...process.env, PATH, CI: 'true', TANDEM_LIVE: '0', CARGO_TERM_COLOR: 'never' },
   });
   const exitCode = await child.exited;
   console.log(
