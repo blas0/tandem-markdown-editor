@@ -38,6 +38,8 @@ bun run test:e2e
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
+`bun run lint` also checks the lines a branch adds since it left `main`. It rejects focused or skipped tests, `console.log` in app source, `TODO` and `FIXME` markers, and `@ts-expect-error` or `biome-ignore` without a reason.
+
 `TANDEM_LIVE=1 bun run test:integration` also runs the live provider tests. They send synthetic text to your signed-in CLIs and are skipped otherwise.
 
 ## Production build
