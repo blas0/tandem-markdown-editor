@@ -90,7 +90,8 @@ it('defers unsupported encodings and leaves a failed folder import atomic', asyn
     const imported = await app.links.openPath(encoded, 'windows-1252');
     if (!('document' in imported) || !imported.document)
       throw new Error('Expected encoded document');
-    expect(imported.document.content.markdown).toBe('\u0080');
+    // windows-1252 maps byte 0x80 to the euro sign, not to the latin1 control character.
+    expect(imported.document.content.markdown).toBe('€');
 
     await expect(app.links.openPath(failed)).rejects.toThrow(/smaller than 50 MB/);
     expect(app.store.folders()).toHaveLength(0);
