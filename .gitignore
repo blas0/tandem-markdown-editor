@@ -9,3 +9,24 @@ src-tauri/binaries/
 src-tauri/resources/
 *.log
 .claude/
+
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+.npmrc
+.netrc
+
+# Agent sessions and local agent config
+*.jsonl
+.t3/
+.codex/
+.cursor/
+.windsurf/
+.aider*
+.continue/
+.gemini/
+.specstory/

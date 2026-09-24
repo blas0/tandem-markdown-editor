@@ -1,3 +1,4 @@
+import { recordValidatedTree, workingTree } from './validated-tree';
 import { parseValidationMode, runValidation } from './validation';
 
 const mode = parseValidationMode(process.argv.slice(2));
@@ -6,6 +7,7 @@ if (mode === 'full' && (process.platform !== 'darwin' || process.arch !== 'arm64
 }
 process.chdir(new URL('..', import.meta.url).pathname);
 console.log(`Tandem validation: ${mode}`);
+const tree = mode === 'full' ? workingTree() : null;
 await runValidation(mode, async (step) => {
   const started = Date.now();
   console.log(
@@ -28,3 +30,5 @@ await runValidation(mode, async (step) => {
   return exitCode;
 });
 console.log(`Tandem ${mode} validation passed.`);
+// A step that rewrote tracked files means the result no longer describes the tree.
+if (tree && workingTree() === tree) recordValidatedTree(tree);
