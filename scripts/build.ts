@@ -39,9 +39,10 @@ await run([
 // better-sqlite3 13 ships its native prebuilds in the locked package.
 // A clean install has no local build directory to copy.
 // Official Node archive pinned to the ABI used by the native SQLite binding.
+// .nvmrc names the version, so tests run on the same Node the app ships.
 if (process.arch !== 'arm64' || process.platform !== 'darwin')
   throw new Error('This build currently targets Apple Silicon Macs');
-const version = '26.3.1',
+const version = (await readFile('.nvmrc', 'utf8')).trim(),
   archive = `node-v${version}-darwin-arm64.tar.gz`,
   expected = '3f624ab0d774553c0d28b968e141d8c676a35a2811fb0b7b356ba9cbdce15f74';
 await mkdir('.tandem-dev', { recursive: true });

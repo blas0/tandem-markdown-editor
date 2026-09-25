@@ -6,7 +6,7 @@ import { Schema as S } from 'effect';
  * commit, push or pull request, and must match package.json, tauri.conf.json
  * and src-tauri/Cargo.toml.
  */
-export const appVersion = '0.1.2';
+export const appVersion = '0.1.3';
 export type ProviderKind = 'codex' | 'claude';
 export type Model = {
   fastTier?: string;
