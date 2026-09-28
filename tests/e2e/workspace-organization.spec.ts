@@ -256,11 +256,9 @@ test('imported documents warn before linked moves and honor the saved preference
         sourcePosition: { x: 5, y: 15 },
         targetPosition: { x: 40, y: 20 },
       });
-    await expect(
-      page.getByText('Error: An item with that name already exists in the destination', {
-        exact: true,
-      }),
-    ).toBeVisible();
+    const filenameWarning = page.getByRole('dialog', { name: 'Choose a different file name' });
+    await expect(filenameWarning).toBeVisible();
+    await expect(filenameWarning).toContainText('Collision.md');
     expect(app.store.open(collision.id).folderId).toBeNull();
     expect(await readFile(join(external, 'Destination', 'Collision.md'), 'utf8')).toBe(
       'Existing external content',

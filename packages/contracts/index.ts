@@ -350,6 +350,7 @@ export const folderPatch = (folder: Folder & { color?: string | null }) => ({
   trashedAt: folder.trashedAt,
 });
 const workspaceMoveSchema = S.Struct({
+  title: S.optional(boundedText(120).pipe(S.minLength(1))),
   item: S.Struct({ kind: S.Literal('document', 'folder'), id: identity }),
   destinationId: S.NullOr(identity),
   beforeId: S.optional(S.NullOr(identity)),
@@ -404,6 +405,7 @@ const parameterSchemas: Partial<Record<Method, S.Schema.AnyNoContext>> = {
   'documents.search': S.Struct({ query: boundedText(1024) }),
   'preferences.update': S.Struct({ patch: preferencesPatch }),
   'documents.create': S.Struct({
+    title: S.optional(boundedText(120).pipe(S.minLength(1))),
     format: S.optional(S.Literal('md')),
     id: S.optional(identity),
     folderId: S.optional(S.NullOr(identity)),
@@ -520,4 +522,35 @@ export function uuid(): string {
 }
 export function emptyContent(): Content {
   return { mode: 'markdown', ast: { type: 'doc', content: [{ type: 'paragraph' }] }, markdown: '' };
+}
+
+/** Transport-safe filename conflict, including native bridges that retain only messages. */
+export type FilenameConflict = { code: 'FILENAME_CONFLICT'; fileName: string; directory: string };
+const filenameConflictTag = '\nTANDEM_FILENAME_CONFLICT:';
+export class FilenameConflictError extends Error {
+  readonly code = 'FILENAME_CONFLICT';
+  constructor(
+    readonly fileName: string,
+    readonly directory: string,
+  ) {
+    super(
+      `An item named "${fileName}" already exists in the destination.${filenameConflictTag}${JSON.stringify({ code: 'FILENAME_CONFLICT', fileName, directory })}`,
+    );
+    this.name = 'FilenameConflictError';
+  }
+}
+export function parseFilenameConflict(error: unknown): FilenameConflict | null {
+  const message = error instanceof Error ? error.message : String(error);
+  const index = message.indexOf(filenameConflictTag);
+  if (index < 0) return null;
+  try {
+    const value = JSON.parse(message.slice(index + filenameConflictTag.length));
+    return value.code === 'FILENAME_CONFLICT' &&
+      typeof value.fileName === 'string' &&
+      typeof value.directory === 'string'
+      ? value
+      : null;
+  } catch {
+    return null;
+  }
 }

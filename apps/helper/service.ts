@@ -86,15 +86,15 @@ export class Application {
         return this.search.query(str(p, 'query'));
       case 'documents.create': {
         const format = 'md';
-        const doc = this.store.create({
-          title: `Untitled.${format}`,
+        return this.links.create({
+          title: str(p, 'title', `Untitled.${format}`),
+          titleOrigin: typeof p.title === 'string' ? 'manual' : 'untitled',
           format,
           content: emptyContent(),
           id: str(p, 'id', uuid()),
           creationOrigin: 'tandem',
           folderId: typeof p.folderId === 'string' ? p.folderId : null,
         });
-        return this.links.place(doc.id, doc.folderId);
       }
       case 'documents.open':
         return (await this.links.sync(id())).document;
@@ -144,7 +144,7 @@ export class Application {
                 )
               )
                 throw new Error('Confirm moving this item between linked directories and Library');
-              await this.links.move(item, patch.folderId, null);
+              await this.links.move(item, patch.folderId, null, patch.title);
             }
             // A linked document's file is renamed with its title.
             if (patch.title !== undefined) {
@@ -216,7 +216,8 @@ export class Application {
         const destinationId = typeof p.destinationId === 'string' ? p.destinationId : null;
         const beforeId = typeof p.beforeId === 'string' ? p.beforeId : null;
         const operationId = str(p, 'operationId');
-        const request = { method, item, destinationId, beforeId };
+        const title = typeof p.title === 'string' ? p.title : undefined;
+        const request = { method, item, destinationId, beforeId, title };
         return this.store.onceAsync(operationId, request, () => {
           if (
             this.store.preferences().confirmLinkedDirectoryMove &&
@@ -229,7 +230,7 @@ export class Application {
             )
           )
             throw new Error('Confirm moving this item between linked directories and Library');
-          return this.links.move(item, destinationId, beforeId);
+          return this.links.move(item, destinationId, beforeId, title);
         });
       }
       case 'reviews.list':
