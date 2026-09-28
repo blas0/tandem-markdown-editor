@@ -9,6 +9,7 @@ src-tauri/binaries/
 src-tauri/resources/
 *.log
 .claude/
+/WORK-LIST.md
 
 # Secrets and credentials
 .env
