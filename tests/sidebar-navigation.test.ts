@@ -85,7 +85,7 @@ describe('moving items around a symlinked directory', () => {
     expect(tandemCreated({})).toBe(true);
   });
 
-  it('marks only the linked root immovable while every row stays a drag target', () => {
+  it('keeps linked documents draggable and hides their directory scaffolding', () => {
     const html = renderToStaticMarkup(
       createElement(FolderTree, {
         folders,
@@ -96,20 +96,14 @@ describe('moving items around a symlinked directory', () => {
         onMove: () => {},
       }),
     );
-    // The whole opening tag, so the assertion does not depend on attribute order.
-    const rowFor = (label: string) => {
-      const index = html.indexOf(`aria-label="${label}"`);
-      expect(index).toBeGreaterThan(-1);
-      return html.slice(html.lastIndexOf('<div', index), html.indexOf('>', index) + 1);
-    };
-    for (const label of ['External']) {
-      // The attribute stays put; the row refuses the drag when one starts.
-      expect(rowFor(label)).toContain('draggable="true"');
-      expect(rowFor(label)).toContain('data-immovable="true"');
-    }
-    for (const label of ['Notes', 'Note.md', 'Bundle', 'Owned.md', 'Drafts']) {
-      expect(rowFor(label)).toContain('draggable="true"');
-      expect(rowFor(label)).not.toContain('data-immovable');
+    const container = globalThis.document.createElement('div');
+    container.innerHTML = html;
+    for (const id of ['link', 'imported', 'owned'])
+      expect(container.querySelector(`[data-workspace-id="${id}"]`)).toBeNull();
+    for (const id of ['imported-doc', 'owned-doc', 'library-folder']) {
+      const row = container.querySelector(`[data-workspace-id="${id}"]`);
+      expect(row?.getAttribute('draggable')).toBe('true');
+      expect(row?.hasAttribute('data-immovable')).toBe(false);
     }
   });
 });
@@ -134,13 +128,10 @@ describe('showing where the open document sits', () => {
     return html.slice(start, html.indexOf('>', start) + 1);
   };
 
-  it('tints the open document, the folders holding it and the items beside it', () => {
+  it('tints the open linked document while other groups remain neutral', () => {
     const html = render('owned-doc');
-    // The document itself, its folder chain, and everything sharing its folder.
-    for (const label of ['Owned.md', 'Bundle', 'External'])
-      expect(buttonFor(html, label)).toContain('data-related="true"');
-    // A folder in a different branch keeps the ordinary sidebar weight.
-    for (const label of ['Notes', 'Drafts'])
+    expect(buttonFor(html, 'Owned.md')).toContain('data-related="true"');
+    for (const label of ['Note.md', 'Drafts'])
       expect(buttonFor(html, label)).not.toContain('data-related');
   });
 

@@ -141,8 +141,9 @@ export function MarkdownToolbar({
   undo,
   redo,
   code,
-  preview = false,
-  onTogglePreview,
+  rawMode = false,
+  readOnly = false,
+  onToggleRawMode,
 }: {
   format: (action: SourceAction) => void;
   activeMarks?: string[];
@@ -151,9 +152,9 @@ export function MarkdownToolbar({
   undo: () => void;
   redo: () => void;
   code: () => void;
-  /** While the rendered preview is shown, the editing controls rest. */
-  preview?: boolean;
-  onTogglePreview?: () => void;
+  rawMode?: boolean;
+  readOnly?: boolean;
+  onToggleRawMode?: () => void;
 }) {
   const [size, setSize] = useState('16px'),
     [color, setColor] = useState('');
@@ -173,7 +174,7 @@ export function MarkdownToolbar({
         <ToolbarGroup>
           <ToolbarSelect
             label="Paragraph"
-            disabled={preview}
+            disabled={readOnly}
             value="p"
             options={[
               { value: 'p', label: 'Paragraph' },
@@ -189,7 +190,7 @@ export function MarkdownToolbar({
           />
           <ToolbarSelect
             label="Size"
-            disabled={preview}
+            disabled={readOnly}
             compact
             value={size}
             options={[12, 14, 16, 18, 20, 24, 30, 36].map((n) => ({
@@ -208,7 +209,7 @@ export function MarkdownToolbar({
           size="sm"
           aria-label="Text marks"
           value={activeMarks}
-          disabled={preview}
+          disabled={readOnly}
         >
           {[
             { label: 'Bold', before: '**', after: '**', Icon: Bold },
@@ -231,7 +232,7 @@ export function MarkdownToolbar({
           trigger={
             <ToolbarButton
               aria-label="Text color"
-              disabled={preview}
+              disabled={readOnly}
               render={<Button variant="ghost" size="icon-xs" />}
             />
           }
@@ -242,15 +243,15 @@ export function MarkdownToolbar({
             else format({ kind: 'resetColor' });
           }}
         />
-        <FormatButton label="Link" disabled={preview} onClick={link}>
+        <FormatButton disabled={readOnly} label="Link" onClick={link}>
           <Link size={15} />
         </FormatButton>
-        <FormatButton label="Insert image" disabled={preview} onClick={image}>
+        <FormatButton disabled={readOnly} label="Insert image" onClick={image}>
           <Image size={15} />
         </FormatButton>
         <FormatMenu
           label="More formatting"
-          disabled={preview}
+          disabled={readOnly}
           items={[
             { label: 'Bullet list', onSelect: () => format({ kind: 'lines', prefix: '- ' }) },
             { label: 'Numbered list', onSelect: () => format({ kind: 'lines', prefix: '1. ' }) },
@@ -266,18 +267,18 @@ export function MarkdownToolbar({
             { label: 'Horizontal rule', onSelect: () => format({ kind: 'block', text: '---' }) },
           ]}
         />
-        <FormatButton label="Undo" disabled={preview} onClick={undo}>
+        <FormatButton disabled={readOnly} label="Undo" onClick={undo}>
           <Undo2 size={15} />
         </FormatButton>
-        <FormatButton label="Redo" disabled={preview} onClick={redo}>
+        <FormatButton disabled={readOnly} label="Redo" onClick={redo}>
           <Redo2 size={15} />
         </FormatButton>
         <ToolbarSeparator />
         <FormatButton
-          label="Preview"
-          aria-pressed={preview}
-          data-pressed={preview ? '' : undefined}
-          onClick={onTogglePreview}
+          label="Raw markdown"
+          aria-pressed={rawMode}
+          data-pressed={rawMode ? '' : undefined}
+          onClick={onToggleRawMode}
         >
           <Eye size={15} />
         </FormatButton>

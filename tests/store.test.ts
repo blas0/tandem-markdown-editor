@@ -91,7 +91,11 @@ describe('durable document journal', () => {
     sql.prepare('UPDATE documents SET snapshot=? WHERE id=?').run(damaged, d.id);
     sql.close();
     const reopened = new Store(path);
-    expect(() => reopened.open(d.id)).toThrow('snapshot');
+    expect(reopened.open(d.id)).toMatchObject({
+      content: { markdown: 'Modified text' },
+      recoveryReadOnly: true,
+      recoveryWarning: expect.stringContaining('Checksum mismatch'),
+    });
     expect(
       (
         reopened.sql.prepare('SELECT snapshot FROM documents WHERE id=?').get(d.id) as {
@@ -398,8 +402,10 @@ describe('documents whose snapshot cannot be verified', () => {
   it('reports the reason the snapshot failed instead of a bare message', () => {
     const { store, id } = corrupt();
     try {
-      expect(() => store.open(id)).toThrow(/could not be verified/);
-      expect(() => store.open(id)).toThrow(/Checksum mismatch/);
+      expect(store.open(id).recoveryWarning).toMatch(/could not be verified/);
+      expect(store.open(id).recoveryWarning).toMatch(/Checksum mismatch/);
+      expect(store.open(id).content.markdown).toBe('Original text.');
+      expect(store.open(id).recoveryReadOnly).toBe(true);
     } finally {
       store.close();
     }
@@ -413,7 +419,7 @@ describe('documents whose snapshot cannot be verified', () => {
       expect(store.list().find((document) => document.id === id)?.trashedAt).toBe(stamp);
       expect(store.update(id, { trashedAt: null }).trashedAt).toBeNull();
       // The retained copy is never rewritten by a metadata edit.
-      expect(() => store.open(id)).toThrow(/could not be verified/);
+      expect(store.open(id).recoveryWarning).toMatch(/could not be verified/);
     } finally {
       store.close();
     }

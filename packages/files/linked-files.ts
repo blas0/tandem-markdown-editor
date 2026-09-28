@@ -789,7 +789,8 @@ export class LinkedFiles {
   }
   private async synchronize(id: string, resolution?: LinkResolution): Promise<LinkStatus> {
     let doc = this.store.open(id);
-    if (this.stopped || !doc.linkedPath || doc.trashedAt) return { document: doc };
+    if (this.stopped || !doc.linkedPath || doc.trashedAt || doc.recoveryReadOnly)
+      return { document: doc };
     if (retiredFormat(doc)) return { document: doc, error: retiredFormatMessage };
     const sourcePath = doc.linkedPath;
     const bytes = await readFile(sourcePath),
@@ -797,7 +798,8 @@ export class LinkedFiles {
     // Reading the source yields to local saves. Compare against their latest revision,
     // and never synchronize a path that was disconnected while the read was pending.
     doc = this.store.open(id);
-    if (doc.linkedPath !== sourcePath || doc.trashedAt) return { document: doc };
+    if (doc.linkedPath !== sourcePath || doc.trashedAt || doc.recoveryReadOnly)
+      return { document: doc };
     if (resolution?.draft) {
       if (resolution.revision !== doc.revision || resolution.hash !== hash)
         return {

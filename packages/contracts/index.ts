@@ -116,7 +116,11 @@ export type DocumentMeta = {
   modifiedAt: string;
   trashedAt: string | null;
 };
-export type Document = DocumentMeta & { content: Content };
+export type Document = DocumentMeta & {
+  content: Content;
+  recoveryWarning?: string;
+  recoveryReadOnly?: boolean;
+};
 export type Folder = {
   color?: string;
   linkedPath?: string | null;

@@ -80,46 +80,130 @@ test('nested folders take one indent, documents two, folders lead and one guide 
   }
 });
 
-test('a document created in a linked directory appears there and renames its file', async ({
+test('symlinks group files by their full grandparent path and retain file actions', async ({
   page,
 }) => {
-  const base = await realpath(await mkdtemp(join(tmpdir(), 'tandem-tree-linked-')));
-  const code = join(base, 'Code');
-  await mkdir(join(code, 'tandem'), { recursive: true });
-  await writeFile(join(code, 'tandem', 'WORK-LIST.md'), 'Work list');
+  const base = await realpath(await mkdtemp(join(tmpdir(), 'tandem-grouped-links-')));
+  const paths = [
+    join(base, '.claude', 'skills', 'unrot', 'SKILL.md'),
+    join(base, '.claude', 'skills', 'out-unrot', 'SKILL.md'),
+    join(base, '.claude', 'CLAUDE.md'),
+    join(base, '.claude', 'old-CLAUDE.md'),
+    join(base, 'other', 'skills', 'unrot', 'SKILL.md'),
+  ];
   const app = await harness(page);
   app.store.savePreferences({ onboarding: true });
-  await app.links.attach(join(code, 'tandem', 'WORK-LIST.md'));
+  for (const [index, path] of paths.entries()) {
+    await mkdir(join(path, '..'), { recursive: true });
+    await writeFile(path, `Linked content ${index}`);
+    await app.links.attach(path);
+  }
   try {
     await page.goto('/');
-    const symlinks = page.getByRole('tree', { name: 'Symlink items', exact: true });
-    await symlinks.getByRole('button', { name: 'New document in Code', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'New .md document', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'Markdown source', exact: true })).toBeVisible();
-    await expect
-      .poll(() => readdir(code).then((names) => names.sort()))
-      .toEqual(['Untitled.md', 'tandem']);
-    const rows = await treeRows(page, 'Symlink items');
-    const names = rows.map((row) => row.name);
-    // Code lists its folder first, then its own document, both below Code.
-    expect(names.slice(names.indexOf('Code'))).toEqual([
-      'Code',
-      'tandem',
-      'WORK-LIST.md',
-      'Untitled.md',
-    ]);
-    const created = rows.find((row) => row.name === 'Untitled.md');
-    const tandem = rows.find((row) => row.name === 'tandem');
-    expect(created?.x).toBe((tandem?.x ?? 0) + 16);
-
-    await symlinks.getByRole('button', { name: 'Actions for Untitled.md', exact: true }).click();
-    await page.getByRole('textbox', { name: 'Document name', exact: true }).fill('Test');
-    await expect
-      .poll(() => readdir(code).then((names) => names.sort()))
-      .toEqual(['Test.md', 'tandem']);
+    const symlinks = page.getByRole('list', { name: 'Symlink items', exact: true });
+    const rows = symlinks.getByRole('listitem');
+    await expect(rows).toHaveCount(5);
+    await expect(symlinks.getByRole('treeitem')).toHaveCount(0);
+    await expect(symlinks.locator('.symlink-group-separator')).toHaveCount(2);
+    const rowFor = (path: string) => rows.filter({ hasText: `${join(path, '..')}/` });
+    for (const path of paths) {
+      const row = rowFor(path).filter({
+        has: page.getByRole('button', {
+          name: path.split('/').at(-1),
+          exact: true,
+        }),
+      });
+      await expect(row).toHaveCount(1);
+      await expect(row.getByText(`${join(path, '..')}/`, { exact: true })).toBeVisible();
+      await expect(row.locator('.symlink-row')).toHaveCSS('height', '48px');
+      await expect(
+        row.getByRole('button', { name: `Actions for ${path.split('/').at(-1)}`, exact: true }),
+      ).toHaveCSS('opacity', '1');
+    }
+    // The two skills share a group even though their immediate parents differ.
+    // Another directory named skills must remain a separate group.
+    const groups = await symlinks.evaluate((element) => {
+      const groups: string[][] = [[]];
+      for (const item of element.querySelectorAll(':scope > li:not([aria-hidden])')) {
+        if (item.querySelector('.symlink-group-separator')) groups.push([]);
+        groups.at(-1)?.push(item.textContent ?? '');
+      }
+      return groups;
+    });
+    expect(groups.map((group) => group.length).sort()).toEqual([1, 2, 2]);
+    expect(
+      groups.find((group) => group.some((text) => text.includes('/skills/out-unrot/'))),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(`${base}/.claude/skills/unrot/`),
+        expect.stringContaining(`${base}/.claude/skills/out-unrot/`),
+      ]),
+    );
+    await page.screenshot({ path: '/tmp/tandem-symlink-groups.png', animations: 'disabled' });
+    const unrot = rowFor(paths[0]);
+    await unrot.getByRole('button', { name: 'SKILL.md', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Markdown source', exact: true })).toHaveText(
+      'Linked content 0',
+    );
+    await unrot.getByRole('button', { name: 'Actions for SKILL.md', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Document name', exact: true }).fill('Renamed');
+    await expect.poll(() => readdir(join(paths[0], '..'))).toEqual(['Renamed.md']);
     await page.keyboard.press('Escape');
-    await expect(symlinks.getByRole('treeitem', { name: 'Test.md', exact: true })).toBeVisible();
-    await access(join(code, 'tandem', 'WORK-LIST.md'));
+    await expect(unrot.getByRole('button', { name: 'Renamed.md', exact: true })).toBeVisible();
+    await access(paths[1]);
+
+    const first = rows.first().getByRole('button').first();
+    const second = rows.nth(1).getByRole('button').first();
+    const last = rows.last().getByRole('button').first();
+    await first.focus();
+    await first.press('ArrowDown');
+    await expect(second).toBeFocused();
+    await second.press('ArrowUp');
+    await expect(first).toBeFocused();
+    await first.press('End');
+    await expect(last).toBeFocused();
+    await last.press('Home');
+    await expect(first).toBeFocused();
+    await first.press('Shift+F10');
+    await expect(page.getByRole('textbox', { name: 'Document name', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+  } finally {
+    await app.close();
+  }
+});
+
+test('symlink keyboard navigation reaches virtualized files across groups', async ({ page }) => {
+  const app = await harness(page);
+  app.store.savePreferences({ onboarding: true });
+  for (let group = 0; group < 10; group++) {
+    const folderId = `linked-${group}`;
+    app.store.saveFolder({
+      id: folderId,
+      name: `Group ${group}`,
+      linkedPath: `/fixture/group-${group}/notes`,
+    });
+    for (let index = 0; index < 10; index++) {
+      app.store.create({
+        title: `Note ${String(group * 10 + index).padStart(3, '0')}.md`,
+        folderId,
+        format: 'md',
+      });
+    }
+  }
+  try {
+    await page.goto('/');
+    const list = page.getByRole('list', { name: 'Symlink items', exact: true });
+    const first = list.getByRole('button', { name: 'Note 000.md', exact: true });
+    const last = list.getByRole('button', { name: 'Note 099.md', exact: true });
+    await expect(first).toBeVisible();
+    await expect(last).toHaveCount(0);
+    await first.focus();
+    await first.press('End');
+    await expect(last).toBeFocused();
+    await expect(last).toBeInViewport();
+    await last.press('Home');
+    await expect(first).toBeFocused();
+    await expect(first).toBeInViewport();
   } finally {
     await app.close();
   }

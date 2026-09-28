@@ -31,55 +31,45 @@ test('Library collapse persists and restores its virtualized documents', async (
   }
 });
 
-test('linked folder actions work with pointer and keyboard input', async ({ page }) => {
+test('linked document actions work with pointer and keyboard input', async ({ page }) => {
   const app = await harness(page);
   app.store.savePreferences({ onboarding: true });
   app.store.saveFolder({ id: 'linked', name: 'Linked folder', linkedPath: '/fixture/linked' });
+  app.store.create({ title: 'Linked note.md', folderId: 'linked', format: 'md' });
   try {
     await page.goto('/');
-    const row = page.getByRole('treeitem', {
-      name: 'Linked folder',
-      exact: true,
-      includeHidden: true,
-    });
-    const create = row.getByRole('button', { name: 'New document in Linked folder', exact: true });
-    const actions = row.getByRole('button', {
-      name: 'Actions for folder Linked folder',
-      exact: true,
-      includeHidden: true,
-    });
-    await expect(create).toBeVisible();
+    const row = page
+      .getByRole('list', { name: 'Symlink items', exact: true })
+      .getByRole('listitem');
+    const actions = row.getByRole('button', { name: 'Actions for Linked note.md', exact: true });
     await expect(actions).toBeVisible();
-    await create.click();
-    await expect(
-      page.getByRole('menuitem', { name: 'New .md document', exact: true }),
-    ).toBeVisible();
-    await page.keyboard.press('Escape');
     await actions.click();
     const settings = page.getByRole('group', { name: 'Name', exact: true });
     await expect(settings).toBeVisible();
-    await expect(settings.getByRole('textbox', { name: 'Folder name', exact: true })).toBeVisible();
+    await expect(
+      settings.getByRole('textbox', { name: 'Document name', exact: true }),
+    ).toBeVisible();
     await page.mouse.move(900, 700);
     await expect(settings).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(settings).toBeHidden();
-    await row.focus();
-    await row.press('Shift+F10');
+    const document = row.getByRole('button', { name: 'Linked note.md', exact: true });
+    await document.focus();
+    await document.press('Shift+F10');
     await expect(settings).toBeVisible();
   } finally {
     await app.close();
   }
 });
 
-test('sidebar sections and nested folders expand and collapse, with a separator before Cadences', async ({
-  page,
-}) => {
+test('sidebar sections expand and collapse, with a separator before Cadences', async ({ page }) => {
   const app = await harness(page);
   app.store.savePreferences({ onboarding: true });
   app.store.create({ title: 'Loose document' });
   app.store.saveFolder({ id: 'regular', name: 'Regular folder' });
   app.store.saveFolder({ id: 'linked', name: 'Linked folder', linkedPath: '/fixture/linked' });
   app.store.saveFolder({ id: 'nested', name: 'Nested folder', parentId: 'linked' });
+  app.store.create({ title: 'Nested linked.md', folderId: 'nested', format: 'md' });
   try {
     await page.goto('/');
     await expect(page.locator('[data-slot="separator"] + .cadence-navigation')).toBeVisible();
@@ -93,7 +83,7 @@ test('sidebar sections and nested folders expand and collapse, with a separator 
     ] as const) {
       const toggle = section.getByRole('button', { name: label, exact: true });
       await expect(toggle.locator('.t-icon-swap')).toHaveAttribute('data-state', 'a');
-      await expect(toggle.locator('.t-icon').first()).toHaveCSS('transition-duration', /^0\.25s/);
+      await expect(toggle.locator('.t-icon').first()).toHaveCSS('transition-duration', '0s');
     }
     const libraryBounds = await librarySection.boundingBox();
     const symlinkBounds = await symlinksSection.boundingBox();
@@ -117,16 +107,12 @@ test('sidebar sections and nested folders expand and collapse, with a separator 
       await expect(button.locator('.t-icon-swap')).toHaveAttribute('data-state', 'a');
       await expect(content).toBeVisible();
     }
-    const linked = page.getByRole('treeitem', { name: 'Linked folder', exact: true });
-    const nested = page.getByRole('treeitem', { name: 'Nested folder', exact: true });
-    await expect(linked).toHaveAttribute('aria-expanded', 'true');
+    const nested = symlinksSection.getByRole('button', { name: 'Nested linked.md', exact: true });
     await expect(nested).toBeVisible();
-    await linked.getByRole('button', { name: 'Linked folder', exact: true }).click();
-    await expect(linked).toHaveAttribute('aria-expanded', 'false');
-    await expect(nested).toBeHidden();
-    await linked.press('ArrowRight');
-    await expect(linked).toHaveAttribute('aria-expanded', 'true');
-    await expect(nested).toBeVisible();
+    await expect(
+      symlinksSection.getByText('/fixture/linked/Nested folder/', { exact: true }),
+    ).toBeVisible();
+    await expect(symlinksSection.getByRole('treeitem')).toHaveCount(0);
     const libraryToggle = librarySection.getByRole('button', { name: 'Library', exact: true });
     const symlinksToggle = symlinksSection.getByRole('button', {
       name: 'Symlinks',

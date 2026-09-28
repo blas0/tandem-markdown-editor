@@ -21,14 +21,14 @@ import {
   type Unit,
   uuid,
 } from '../contracts';
-import { applyEdit, ensureBlockIds, sourceFor, unitsFor } from '../document';
+import { applyEdit, ensureBlockIds, markdownPresentation, sourceFor, unitsFor } from '../document';
 import {
   mapSavedRange,
   replaySavedEdit,
   restoreMarkdown,
   type SavedContent,
   type SavedEdit,
-  savedNode,
+  verifySavedContent,
 } from '../document/legacy';
 import * as tables from './schema';
 
@@ -79,16 +79,34 @@ function decodeSnapshot(value: string): SavedContent {
         createHash('sha256').update(JSON.stringify(parsed.content)).digest('hex')
       )
         throw new Error('Checksum mismatch');
-      savedNode(parsed.content).check();
+      verifySavedContent(parsed.content);
       return parsed.content;
     }
-    savedNode(parsed).check();
+    verifySavedContent(parsed);
     return parsed;
   } catch (error) {
     throw new UnverifiedSnapshotError(
       (error instanceof Error ? error.message : String(error)) || 'Unknown snapshot failure',
     );
   }
+}
+function recoverSnapshot(value: string): Content {
+  let markdown = value;
+  try {
+    const parsed = JSON.parse(value);
+    const candidate = parsed?.content ?? parsed;
+    if (typeof candidate?.markdown === 'string') markdown = candidate.markdown;
+  } catch {
+    // An incomplete JSON snapshot is still inspectable evidence. Never guess
+    // missing delimiters or silently discard bytes to manufacture a document.
+  }
+  return { ...emptyContent(), markdown };
+}
+function requireWritable(doc: Document) {
+  if (doc.recoveryReadOnly)
+    throw new Error(
+      'This recovered document is read-only. Duplicate it or export a new copy to edit.',
+    );
 }
 export class Store {
   readonly sql: Database.Database;
@@ -185,7 +203,12 @@ export class Store {
     }
     return result;
   }
-  private cachePut(id: string, doc: Document) {
+  private cachePut(id: string, doc: Document, checkFormatting = true) {
+    if (!doc.recoveryReadOnly && (checkFormatting || doc.recoveryWarning)) {
+      const warning = markdownPresentation(doc.content).warning;
+      if (warning) doc.recoveryWarning = warning;
+      else delete doc.recoveryWarning;
+    }
     if (this.frame && !this.frame.previous.has(id)) this.frame.previous.set(id, this.cache.get(id));
     this.cache.set(id, doc);
     if (this.cache.size > 32) {
@@ -493,14 +516,31 @@ export class Store {
     if (cached) return structuredClone(cached);
     const row = this.db.select().from(tables.documents).where(eq(tables.documents.id, id)).get();
     if (!row) throw new Error('Document not found');
-    let content = decodeSnapshot(row.snapshot);
-    for (const op of this.opsAfter(id, row.snapshotRevision)) {
-      // Old journals may contain AST steps before the first Markdown edit.
-      content = replaySavedEdit(content, op.edit);
+    let restored: Content;
+    let recoveryWarning: string | undefined;
+    try {
+      let content = decodeSnapshot(row.snapshot);
+      for (const op of this.opsAfter(id, row.snapshotRevision)) {
+        // Old journals may contain AST steps before the first Markdown edit.
+        content = replaySavedEdit(content, op.edit);
+      }
+      restored = restoreMarkdown(content);
+    } catch (error) {
+      restored = recoverSnapshot(row.snapshot);
+      const reason = unverifiedSnapshot(error)
+        ? error.reason
+        : error instanceof Error
+          ? error.message
+          : String(error);
+      recoveryWarning = `This document could not be verified (${reason}). Showing the saved source read-only. Later edits were not replayed. The original is retained; duplicate or export a new copy to edit.`;
     }
-    const restored = restoreMarkdown(content);
     const metadata = legacyFormat(JSON.parse(row.metadata));
-    const doc = { ...metadata, revision: row.revision, content: restored } as Document;
+    const doc = {
+      ...metadata,
+      revision: row.revision,
+      content: restored,
+      ...(recoveryWarning ? { recoveryWarning, recoveryReadOnly: true } : {}),
+    } as Document;
     this.cachePut(id, doc);
     return structuredClone(doc);
   }
@@ -539,13 +579,14 @@ export class Store {
       return { revision: old.revision };
     }
     const doc = this.open(id);
+    requireWritable(doc);
     if (doc.revision !== expected)
       throw new Error(`Revision conflict: expected ${expected}, current ${doc.revision}`);
     const edited = applyEdit(doc.content, edit);
     const revision = doc.revision + 1;
     const content = revision % 256 === 0 ? ensureBlockIds(edited) : edited;
     const modifiedAt = new Date().toISOString();
-    const { content: _, ...metadata } = doc;
+    const { content: _, recoveryWarning, recoveryReadOnly, ...metadata } = doc;
     this.sql.transaction(() => {
       this.db
         .insert(tables.operations)
@@ -570,13 +611,16 @@ export class Store {
         .where(eq(tables.documents.id, id))
         .run();
     })();
-    this.cachePut(id, { ...doc, content, revision, modifiedAt });
+    // Parsing large Markdown documents belongs at open/flush, not every source
+    // keystroke. Recheck existing warnings so repairing the source clears them.
+    this.cachePut(id, { ...doc, content, revision, modifiedAt }, false);
     this.syncCadence(this.open(id));
     this.emit('document.saved', id, { revision, modifiedAt });
     return { revision };
   }
   flush(id: string) {
     const current = this.open(id);
+    requireWritable(current);
     const doc = { ...current, content: ensureBlockIds(current.content) };
     this.db
       .update(tables.documents)
@@ -586,22 +630,9 @@ export class Store {
     this.cachePut(id, doc);
     return { revision: doc.revision };
   }
-  /** Metadata without the content snapshot, so an unreadable body never blocks archiving. */
-  private metadataOf(id: string): DocumentMeta {
-    const row = this.db.select().from(tables.documents).where(eq(tables.documents.id, id)).get();
-    if (!row) throw new Error('Document not found');
-    return { ...legacyFormat(JSON.parse(row.metadata)), revision: row.revision };
-  }
   private updateInternal(id: string, patch: Partial<Document>) {
-    // Archiving, renaming and reordering only touch metadata. A document whose snapshot
-    // fails verification must still be movable, or the library keeps it forever.
-    let body: Document | undefined;
-    try {
-      body = this.open(id);
-    } catch (error) {
-      if (!unverifiedSnapshot(error)) throw error;
-    }
-    const doc = body ?? this.metadataOf(id);
+    // Metadata changes are safe even when the source opened in recovery mode.
+    const doc = this.open(id);
     const allowed: Partial<Document> = {};
     for (const key of [
       'title',
@@ -634,17 +665,14 @@ export class Store {
     if ((doc.cadenceId || allowed.cadenceId) && allowed.folderId)
       throw new Error('Cadences belong in the Cadences section');
     const updated = { ...doc, ...allowed, modifiedAt: new Date().toISOString() } as Document;
-    const { content, ...metadata } = updated;
+    const { content, recoveryWarning, recoveryReadOnly, ...metadata } = updated;
     this.db
       .update(tables.documents)
       .set({ metadata: JSON.stringify(metadata) })
       .where(eq(tables.documents.id, id))
       .run();
-    // Never cache or mirror a record whose body could not be read; only its metadata moved.
-    if (body) {
-      this.cachePut(id, updated);
-      this.syncCadence(updated);
-    }
+    this.cachePut(id, updated, false);
+    this.syncCadence(updated);
     this.emit('library.changed', id);
     return structuredClone(updated);
   }
@@ -835,7 +863,7 @@ export class Store {
     })();
   }
   private syncCadence(doc: Document) {
-    if (!doc.cadenceId || this.syncingCadences) return;
+    if (!doc.cadenceId || this.syncingCadences || doc.recoveryReadOnly) return;
     const cadences = this.preferences().cadences;
     const old = cadences.find((c) => c.id === doc.cadenceId);
     if (!old) return;
@@ -1148,7 +1176,7 @@ export class Store {
     return path;
   }
   close() {
-    for (const id of this.cache.keys()) this.flush(id);
+    for (const [id, doc] of this.cache) if (!doc.recoveryReadOnly) this.flush(id);
     this.sql.close();
   }
 }

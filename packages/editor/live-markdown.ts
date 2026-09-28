@@ -195,6 +195,29 @@ export function presentationFor(
   result.hidden.sort((a, b) => a.from - b.from || a.to - b.to);
   return result;
 }
+/** Raw mode only mutes syntax. No source is hidden, replaced or styled as prose. */
+export function rawPresentationFor(
+  state: EditorState,
+  _cursor = 0,
+  from = 0,
+  to = state.doc.length,
+): Presentation {
+  const result: Presentation = { hidden: [], marks: [], lines: [], images: [] };
+  syntaxTree(state).iterate({
+    from,
+    to,
+    enter({ node }) {
+      if (
+        /^(?:HeaderMark|QuoteMark|ListMark|LinkMark|URL|LinkTitle|EmphasisMark|StrikethroughMark|CodeMark|CodeInfo|TaskMarker|TableDelimiter|HorizontalRule|HTMLTag)$/.test(
+          node.name,
+        )
+      )
+        result.marks.push({ from: node.from, to: node.to, className: 'cm-format-marker' });
+    },
+  });
+  return result;
+}
+
 class ImageWidget extends WidgetType {
   constructor(readonly image: Picture) {
     super();
@@ -226,13 +249,13 @@ class ImageWidget extends WidgetType {
     return false;
   }
 }
-function decorations(view: EditorView) {
+function decorations(view: EditorView, presentation: typeof presentationFor) {
   const marks: ReturnType<Decoration['range']>[] = [];
   // Reveal source while composing, preventing decorations from disturbing native IME input.
   if (view.composing) return Decoration.none;
   const used = new Set<string>();
   for (const range of view.visibleRanges) {
-    const p = presentationFor(view.state, view.state.selection.main.head, range.from, range.to);
+    const p = presentation(view.state, view.state.selection.main.head, range.from, range.to);
     for (const h of p.hidden) {
       const key = `h:${h.from}:${h.to}`;
       if (!used.has(key)) {
@@ -267,42 +290,47 @@ function decorations(view: EditorView) {
   }
   return Decoration.set(marks, true);
 }
-export const liveMarkdown = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
-    composing: boolean;
-    compositionTimer?: ReturnType<typeof setTimeout>;
-    constructor(view: EditorView) {
-      this.composing = view.composing;
-      this.decorations = decorations(view);
-    }
-    update(update: ViewUpdate) {
-      if (
-        this.composing !== update.view.composing ||
-        update.docChanged ||
-        update.selectionSet ||
-        update.viewportChanged ||
-        update.focusChanged ||
-        syntaxTree(update.state) !== syntaxTree(update.startState)
-      )
-        this.decorations = decorations(update.view);
-      this.composing = update.view.composing;
-    }
-    compositionEnded(view: EditorView) {
-      clearTimeout(this.compositionTimer);
-      // CodeMirror finishes its composition bookkeeping after DOM observers run.
-      this.compositionTimer = setTimeout(() => view.dispatch({}), 0);
-    }
-    destroy() {
-      clearTimeout(this.compositionTimer);
-    }
-  },
-  {
-    decorations: (v) => v.decorations,
-    eventObservers: {
-      compositionend(_event, view) {
-        this.compositionEnded(view);
+function markdownPresentation(presentation: typeof presentationFor) {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      composing: boolean;
+      compositionTimer?: ReturnType<typeof setTimeout>;
+      constructor(view: EditorView) {
+        this.composing = view.composing;
+        this.decorations = decorations(view, presentation);
+      }
+      update(update: ViewUpdate) {
+        if (
+          this.composing !== update.view.composing ||
+          update.docChanged ||
+          update.selectionSet ||
+          update.viewportChanged ||
+          update.focusChanged ||
+          syntaxTree(update.state) !== syntaxTree(update.startState)
+        )
+          this.decorations = decorations(update.view, presentation);
+        this.composing = update.view.composing;
+      }
+      compositionEnded(view: EditorView) {
+        clearTimeout(this.compositionTimer);
+        // CodeMirror finishes its composition bookkeeping after DOM observers run.
+        this.compositionTimer = setTimeout(() => view.dispatch({}), 0);
+      }
+      destroy() {
+        clearTimeout(this.compositionTimer);
+      }
+    },
+    {
+      decorations: (v) => v.decorations,
+      eventObservers: {
+        compositionend(_event, view) {
+          this.compositionEnded(view);
+        },
       },
     },
-  },
-);
+  );
+}
+
+export const liveMarkdown = markdownPresentation(presentationFor);
+export const rawMarkdown = markdownPresentation(rawPresentationFor);

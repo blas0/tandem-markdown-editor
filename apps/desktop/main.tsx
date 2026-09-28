@@ -16,7 +16,7 @@ import {
   uuid,
   workspaceMoveInvolvesLinkedDirectory,
 } from '../../packages/contracts';
-import { sourceFor } from '../../packages/document';
+import { markdownPresentation, sourceFor } from '../../packages/document';
 import { DocumentEditor, type EditorHandle, type EditorSelection } from '../../packages/editor';
 import { selectionUnitIds } from '../../packages/editor/annotations';
 import type { LinkStatus } from '../../packages/files/linked-files';
@@ -43,9 +43,10 @@ import { DialogTitle } from '../../packages/ui/coss/dialog';
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from '../../packages/ui/coss/menu';
 import { Separator } from '../../packages/ui/coss/separator';
 import { Switch } from '../../packages/ui/coss/switch';
-import { ToastProvider, toastManager } from '../../packages/ui/coss/toast';
+import { ToastPrimitive, ToastProvider, toastManager } from '../../packages/ui/coss/toast';
 import { TooltipProvider } from '../../packages/ui/coss/tooltip';
 import { DocumentIcon } from '../../packages/ui/document-icon';
+import { DocumentNotice } from '../../packages/ui/document-notice';
 import { FolderTree, type MoveItem, readDragItem } from '../../packages/ui/folder-tree';
 import {
   Bookmark,
@@ -374,7 +375,8 @@ function App() {
   const paneCommand = useRef<(command: 'split-right' | 'split-down' | 'close') => void>(() => {});
   paneCommand.current = (command) => {
     // Dialogs and menus keep these keys; panes change only from the workspace.
-    if (window.document.querySelector('[role="dialog"], [role="menu"]')) return;
+    if (window.document.querySelector('[role="dialog"]:not([aria-modal="false"]), [role="menu"]'))
+      return;
     if (command === 'close') run(closeFocusedPane);
     else splitFocusedPane(command === 'split-right' ? 'row' : 'column');
   };
@@ -1861,6 +1863,8 @@ const EditorScreen = React.forwardRef<
     },
     ref,
   ) => {
+    const [noticeHost, setNoticeHost] = useState<HTMLElement | null>(null);
+    const [documentToasts] = useState(() => ToastPrimitive.createToastManager());
     const activeRef = useRef(active);
     activeRef.current = active;
     const [, render] = useState(0),
@@ -1886,8 +1890,20 @@ const EditorScreen = React.forwardRef<
         doc.revision,
         (p) => rpc('documents.edit', p),
         () => React.startTransition(() => render((v) => v + 1)),
+        localStorage,
+        !doc.recoveryReadOnly,
       );
     const saves = queue.current;
+    const currentMarkdown = saves.content.markdown;
+    const recoveryWarning = React.useMemo(
+      () =>
+        doc.recoveryReadOnly
+          ? doc.recoveryWarning
+          : doc.recoveryWarning
+            ? markdownPresentation({ ...doc.content, markdown: currentMarkdown }).warning
+            : undefined,
+      [doc.content, doc.recoveryReadOnly, doc.recoveryWarning, currentMarkdown],
+    );
     const [content, setContent] = useState(saves.content);
     const [selection, setSelection] = useState<EditorSelection | null>(null);
     const currentReviews = useRef(reviews);
@@ -2002,7 +2018,7 @@ const EditorScreen = React.forwardRef<
     }, [doc.id, doc.linkedPath]);
 
     useEffect(() => {
-      if (saves.recovery()) {
+      if (!doc.recoveryReadOnly && saves.recovery()) {
         run(() => saves.flush());
       }
     }, []);
@@ -2024,7 +2040,7 @@ const EditorScreen = React.forwardRef<
           .at(-1);
         // A review that changes nothing says so in passing rather than in the header.
         if (completed)
-          toastManager.add({
+          documentToasts.add({
             id: `tandem-review-${completed.id}`,
             title: 'No changes were suggested for this review.',
             type: 'info',
@@ -2060,6 +2076,7 @@ const EditorScreen = React.forwardRef<
       };
     }, [doc.id]);
     const review = async (scope: 'annotate' | 'full' = 'annotate', cadenceId?: string) => {
+      if (doc.recoveryReadOnly) return;
       const selected = editor.current?.selection() ?? selectionState.current;
       const unitIds = selected ? selectionUnitIds(saves.content, selected.from, selected.to) : [];
       if (scope === 'annotate' && !unitIds.length) {
@@ -2110,7 +2127,9 @@ const EditorScreen = React.forwardRef<
           e.defaultPrevented ||
           (e.target instanceof Element &&
             e.target.closest('input, textarea, select, [role="combobox"], search')) ||
-          window.document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')
+          window.document.querySelector(
+            '[role="dialog"]:not([aria-modal="false"]), [role="menu"], [role="listbox"]',
+          )
         )
           return;
         if (e.key === 'Escape') {
@@ -2210,7 +2229,7 @@ const EditorScreen = React.forwardRef<
       unitId: string | undefined,
       decision: 'accept' | 'reject',
     ) => {
-      if (decisionBusy.current) return;
+      if (decisionBusy.current || doc.recoveryReadOnly) return;
       decisionBusy.current = true;
       editor.current?.setReadOnly(true);
       const ids =
@@ -2334,7 +2353,11 @@ const EditorScreen = React.forwardRef<
       </>
     );
     return (
-      <>
+      <ToastProvider
+        toastManager={documentToasts}
+        position="bottom-left"
+        viewportContainer={noticeHost}
+      >
         <TitledDialog
           title="Clear review suggestions?"
           description="Dismiss this document’s suggestions and cancel its running review. Accepted edits stay in the document."
@@ -2432,89 +2455,126 @@ const EditorScreen = React.forwardRef<
           </div>
         </TitledDialog>
         <div className="editing-layout">
-          <section className="writing-area">
+          <section className="writing-area" ref={setNoticeHost}>
             {chromeHost === undefined
               ? chrome
               : chromeHost && createPortal(chrome, chromeHost, `${doc.id}:chrome`)}
+            {recoveryWarning && (
+              <DocumentNotice
+                id={`tandem-document-recovery-${doc.id}`}
+                title="Document recovery"
+                message={recoveryWarning}
+                type="warning"
+              >
+                <div className="flex flex-col gap-2">
+                  <span>{recoveryWarning}</span>
+                  <Button variant="outline" onClick={() => run(recovery)}>
+                    Export recovery copy
+                  </Button>
+                </div>
+              </DocumentNotice>
+            )}
             {saves.state === 'failed' && (
-              <Alert variant="error">
-                <AlertDescription>
-                  <div className="flex flex-col gap-2">
-                    <span>{saves.error}</span>
-                    <div className="flex items-center gap-3">
-                      <Button variant="outline" onClick={() => run(() => saves.retry())}>
-                        Retry save
+              <DocumentNotice
+                key={String(saves.needsRecoveryRepair)}
+                id={`tandem-save-${doc.id}`}
+                title={`Could not save ${doc.title}`}
+                message={saves.error}
+              >
+                <div className="flex flex-col gap-2">
+                  <span>{saves.error}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" onClick={() => run(() => saves.retry())}>
+                      Retry save
+                    </Button>
+                    <Button variant="outline" onClick={() => run(recovery)}>
+                      Export recovery copy
+                    </Button>
+                    {saves.needsRecoveryRepair && (
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          run(async () => {
+                            if (!(await recovery())) return;
+                            const saved = await rpc<Doc>('documents.open', { id: doc.id });
+                            saves.restoreSavedAfterRecoveryExport(saved.content, saved.revision);
+                            setContent(saved.content);
+                            setEditorGeneration((v) => v + 1);
+                            await refresh();
+                          })
+                        }
+                      >
+                        Save recovery copy and use saved document
                       </Button>
-                      <Button variant="outline" onClick={() => run(recovery)}>
-                        Export recovery copy
-                      </Button>
-                      {saves.needsRecoveryRepair && (
-                        <Button
-                          variant="outline"
-                          onClick={() =>
-                            run(async () => {
-                              if (!(await recovery())) return;
-                              const saved = await rpc<Doc>('documents.open', { id: doc.id });
-                              saves.restoreSavedAfterRecoveryExport(saved.content, saved.revision);
-                              setContent(saved.content);
-                              setEditorGeneration((v) => v + 1);
-                              await refresh();
-                            })
-                          }
-                        >
-                          Save recovery copy and use saved document
-                        </Button>
-                      )}
-                    </div>
+                    )}
                   </div>
-                </AlertDescription>
-              </Alert>
+                </div>
+              </DocumentNotice>
             )}
             {linkStatus?.conflict && (
-              <Alert role="status">
-                <AlertDescription>
-                  {linkStatus.conflict.message}
+              <DocumentNotice
+                id={`tandem-link-conflict-${doc.id}`}
+                title={`File conflict in ${doc.title}`}
+                message={linkStatus.conflict.message}
+                type="warning"
+              >
+                <div className="flex flex-col gap-2">
+                  <span>{linkStatus.conflict.message}</span>
                   <Button variant="outline" onClick={() => setLinkDialog(true)}>
                     Resolve file conflict
                   </Button>
-                </AlertDescription>
-              </Alert>
+                </div>
+              </DocumentNotice>
             )}
             {linkStatus?.error && (
-              <Alert variant="error">
-                <AlertDescription>{linkStatus.error}</AlertDescription>
-              </Alert>
+              <DocumentNotice
+                id={`tandem-link-error-${doc.id}`}
+                title={`Linked file unavailable: ${doc.title}`}
+                message={linkStatus.error}
+              />
             )}
             {reviews
               .filter((r) => !r.cleared && r.state === 'failed')
               .map((r) => (
-                <Alert key={r.id} variant="error">
-                  <AlertDescription>
-                    {r.error || 'The review failed before it returned any suggestions.'}
-                  </AlertDescription>
-                </Alert>
+                <DocumentNotice
+                  key={r.id}
+                  id={`tandem-review-error-${r.id}`}
+                  title="Review failed"
+                  message={r.error || 'The review failed before it returned any suggestions.'}
+                />
               ))}
             {reviews
               .filter((r) => !r.cleared && r.state === 'completed' && r.notice)
               .map((r) => (
-                <Alert key={`${r.id}:notice`} role="status">
-                  <AlertDescription>{r.notice}</AlertDescription>
-                </Alert>
+                <DocumentNotice
+                  key={`${r.id}:notice`}
+                  id={`tandem-review-notice-${r.id}`}
+                  title="Review notice"
+                  message={r.notice ?? ''}
+                  type="info"
+                />
               ))}
             {reviews
               .filter((review) => !review.cleared && review.state === 'cancelled')
               .slice(-1)
               .map((review) => (
-                <Alert key={review.id} role="status">
-                  <AlertDescription>Review cancelled.</AlertDescription>
-                </Alert>
+                <DocumentNotice
+                  key={review.id}
+                  id={`tandem-review-cancelled-${review.id}`}
+                  title="Review cancelled."
+                  message=""
+                  type="info"
+                />
               ))}
             {reviewNotice && (
-              <Alert role="status">
-                <AlertDescription>{reviewNotice}</AlertDescription>
-              </Alert>
+              <DocumentNotice
+                id={`tandem-review-status-${doc.id}`}
+                title={reviewNotice}
+                message=""
+                type="info"
+              />
             )}
-            {toolbarMounted && active && (
+            {toolbarMounted && active && !doc.recoveryReadOnly && (
               <div
                 className="review-selection-anchor"
                 style={
@@ -2553,6 +2613,7 @@ const EditorScreen = React.forwardRef<
               key={editorGeneration}
               ref={editor}
               active={active}
+              readOnly={doc.recoveryReadOnly}
               toolbarHost={toolbarHost}
               content={content}
               suggestions={reviews
@@ -2599,7 +2660,7 @@ const EditorScreen = React.forwardRef<
             />
           </section>
         </div>
-      </>
+      </ToastProvider>
     );
   },
 );

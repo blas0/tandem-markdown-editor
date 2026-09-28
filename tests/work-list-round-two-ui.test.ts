@@ -28,7 +28,7 @@ it('renders folder labels at the same normal weight as document labels', () => {
   }
 });
 
-it('projects linked hierarchy into Symlinks between Library and Cadences', () => {
+it('lists linked files with their parent paths between Library and Cadences', () => {
   vi.stubGlobal('localStorage', { getItem: () => null, setItem() {} });
   const html = renderToStaticMarkup(
     createElement(FolderTree, {
@@ -67,9 +67,10 @@ it('projects linked hierarchy into Symlinks between Library and Cadences', () =>
   expect(html.indexOf('Library')).toBeLessThan(html.indexOf('Symlinks'));
   expect(html.indexOf('Symlinks')).toBeLessThan(html.indexOf('Cadences'));
   expect(html).toContain('aria-label="Symlink items"');
-  expect(html).toContain('aria-level="3"');
-  expect(html).toContain('color:#2563eb');
-  expect(html).toContain('document-file-icon');
+  expect(html).toContain('/tmp/notes/Drafts/');
+  expect(html).toContain('Linked.md');
+  expect(html).not.toContain('aria-level="3"');
+  expect(html).not.toContain('External notes');
 });
 
 it('gives info-outline actions the neutral outline surface with blue content', () => {

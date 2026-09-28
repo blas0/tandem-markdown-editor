@@ -14,23 +14,21 @@ test('sidebar controls disappear after pointer clicks leave a row', async ({ pag
   app.store.saveFolder({ id: 'regular', name: 'Regular folder' });
   app.store.saveFolder({ id: 'regular-child', name: 'Regular child', parentId: 'regular' });
   app.store.saveFolder({ id: 'linked', name: 'Linked folder', linkedPath: '/fixture/linked' });
+  app.store.create({ title: 'Linked note.md', folderId: 'linked', format: 'md' });
   try {
     await page.goto('/');
-    for (const name of ['Regular folder', 'Linked folder']) {
+    {
+      const name = 'Regular folder';
       const row = page.getByRole('treeitem', { name, exact: true });
       const chevron = row.locator('.sidebar-expand-icon');
-      if (name === 'Regular folder') {
-        await expect(row.locator('.t-icon-swap')).toHaveCSS('overflow', 'visible');
-        const icon = await bounds(row.locator('.t-icon-swap'));
-        expect(icon.width).toBeGreaterThanOrEqual(14);
-        expect(icon.height).toBeGreaterThanOrEqual(14);
-        await row.getByRole('button', { name, exact: true }).click();
-        await expect(chevron).not.toHaveCSS('opacity', '0');
-        await page.mouse.move(900, 700);
-        await expect(chevron).toHaveCSS('opacity', '0');
-      } else {
-        await expect(chevron).toHaveCount(0);
-      }
+      await expect(row.locator('.t-icon-swap')).toHaveCSS('overflow', 'visible');
+      const icon = await bounds(row.locator('.t-icon-swap'));
+      expect(icon.width).toBeGreaterThanOrEqual(14);
+      expect(icon.height).toBeGreaterThanOrEqual(14);
+      await row.getByRole('button', { name, exact: true }).click();
+      await expect(chevron).not.toHaveCSS('opacity', '0');
+      await page.mouse.move(900, 700);
+      await expect(chevron).toHaveCSS('opacity', '0');
       const action = row.getByRole('button', { name: `Actions for folder ${name}`, exact: true });
       await expect(action).toHaveCSS('opacity', '0');
       await action.click();
@@ -40,6 +38,17 @@ test('sidebar controls disappear after pointer clicks leave a row', async ({ pag
       await expect(action).toHaveAttribute('aria-expanded', 'false');
       await expect(action).toHaveCSS('opacity', '0');
     }
+    const linkedAction = page.getByRole('button', {
+      name: 'Actions for Linked note.md',
+      exact: true,
+    });
+    await page.mouse.move(900, 700);
+    await expect(linkedAction).toHaveCSS('opacity', '1');
+    await linkedAction.click();
+    await expect(linkedAction).toHaveAttribute('aria-expanded', 'true');
+    await page.mouse.click(900, 700);
+    await expect(linkedAction).toHaveAttribute('aria-expanded', 'false');
+    await expect(linkedAction).toHaveCSS('opacity', '1');
     for (const sectionName of ['Library', 'Cadences']) {
       const section = page.getByRole('region', { name: sectionName, exact: true });
       const row = section.locator('.nav-document-row').first();

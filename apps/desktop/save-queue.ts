@@ -42,10 +42,11 @@ export class SaveQueue {
     }) => Promise<{ revision: number }>,
     readonly notify: () => void,
     readonly storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = localStorage,
+    readonly restoreRecovery = true,
   ) {
     this.content = content;
     this.revision = revision;
-    const saved = this.storage.getItem(`tandem:pending:${id}`);
+    const saved = restoreRecovery ? this.storage.getItem(`tandem:pending:${id}`) : null;
     if (saved) {
       try {
         const value = JSON.parse(saved) as {
@@ -85,6 +86,7 @@ export class SaveQueue {
     }
   }
   enqueue(edit: Edit) {
+    if (!this.restoreRecovery) throw new Error('This recovered document is read-only');
     this.buffer.apply(edit);
     this.pending.push({ operationId: uuid(), edit });
     this.persist();
@@ -105,6 +107,7 @@ export class SaveQueue {
     }
   }
   private drain() {
+    if (!this.restoreRecovery) return Promise.resolve();
     if (this.corruptRecovery) {
       this.state = 'failed';
       this.notify();
@@ -156,6 +159,7 @@ export class SaveQueue {
     this.revision = revision;
   }
   async resolveLinkedConflict(content: Content, revision: number) {
+    if (!this.restoreRecovery) throw new Error('This recovered document is read-only');
     await this.draining;
     // Called only after the backend saved the displaced version as a Library copy.
     this.storage.removeItem(`tandem:pending:${this.id}`);

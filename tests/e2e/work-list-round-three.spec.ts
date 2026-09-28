@@ -225,8 +225,11 @@ test('a cadence whose provider hangs fails visibly within the batch timeout', as
     await expect(
       toolbar.getByRole('button', { name: 'Reviewing with Grammar', exact: true }),
     ).toHaveAttribute('aria-busy', 'true');
-    const alert = page.getByRole('alert').filter({ hasText: 'Grammar did not respond within' });
-    await expect(alert).toBeVisible({ timeout: 5_000 });
+    const notice = page
+      .locator('[data-slot="toast-viewport"]')
+      .getByText(/Grammar did not respond within/);
+    await expect(notice).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('.writing-area [role="alert"]')).toHaveCount(0);
     expect(app.store.reviews(doc.id).at(-1)?.state).toBe('failed');
     await expect(page.locator('svg[role="status"]')).toHaveCount(0);
   } finally {

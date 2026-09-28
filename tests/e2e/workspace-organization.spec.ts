@@ -44,7 +44,10 @@ test('dragging organizes and reorders the workspace across owned and linked fold
   try {
     await page.goto('/');
     const draftRow = page.getByRole('button', { name: 'Draft.md', exact: true }).locator('..');
-    const linkedFolder = page.getByRole('treeitem', { name: destination.name, exact: true });
+    const linkedFolder = page
+      .getByRole('list', { name: 'Symlink items', exact: true })
+      .locator('.symlink-row')
+      .filter({ has: page.getByRole('button', { name: 'Anchor.md', exact: true }) });
     await draftRow.dragTo(linkedFolder, {
       sourcePosition: { x: 5, y: 15 },
       targetPosition: { x: 40, y: 20 },
@@ -73,7 +76,9 @@ test('dragging organizes and reorders the workspace across owned and linked fold
     expect(await readFile(linkedPath, 'utf8')).toBe('Dragged draft.');
 
     await page
-      .getByRole('treeitem', { name: 'Draft.md', exact: true })
+      .getByRole('list', { name: 'Symlink items', exact: true })
+      .locator('.symlink-row')
+      .filter({ has: page.getByRole('button', { name: 'Draft.md', exact: true }) })
       .dragTo(page.getByRole('button', { name: 'Library', exact: true }), {
         sourcePosition: { x: 5, y: 15 },
       });
@@ -117,7 +122,7 @@ test('dragging organizes and reorders the workspace across owned and linked fold
       )
       .toEqual([beta.id, alpha.id]);
 
-    // Owned folder nesting, root drops and linked placement preserve the same item.
+    // Owned folder nesting and root drops preserve the same item.
     const betaRow = page.getByRole('treeitem', { name: beta.name, exact: true });
     await betaRow.dragTo(page.getByRole('treeitem', { name: alpha.name, exact: true }), {
       sourcePosition: { x: 5, y: 15 },
@@ -134,28 +139,6 @@ test('dragging organizes and reorders the workspace across owned and linked fold
       .poll(() => app.store.folders().find((folder) => folder.id === beta.id)?.parentId)
       .toBeNull();
     await expect(warning).toBeHidden();
-    await betaRow.dragTo(linkedFolder, {
-      sourcePosition: { x: 5, y: 15 },
-      targetPosition: { x: 40, y: 20 },
-    });
-    await expect(warning).toBeVisible();
-    expect(app.store.folders().find((folder) => folder.id === beta.id)?.linkedPath).toBeFalsy();
-    await expect(warning).toBeVisible();
-    await warning.getByRole('button', { name: 'Confirm move', exact: true }).click();
-    await expect(page.locator('[data-slot="dialog-backdrop"]')).toHaveCount(0);
-    await expect
-      .poll(() => app.store.folders().find((folder) => folder.id === beta.id)?.parentId)
-      .toBe(destination.id);
-    await betaRow.dragTo(page.getByRole('button', { name: 'Library', exact: true }), {
-      sourcePosition: { x: 5, y: 15 },
-    });
-    await expect(warning).toBeVisible();
-    await warning.getByRole('button', { name: 'Confirm move', exact: true }).click();
-    await expect(page.locator('[data-slot="dialog-backdrop"]')).toHaveCount(0);
-    await expect
-      .poll(() => app.store.folders().find((folder) => folder.id === beta.id)?.parentId)
-      .toBeNull();
-
     await page.getByRole('treeitem', { name: beta.name, exact: true }).hover();
     await openActions(
       page,
@@ -185,7 +168,7 @@ test('dragging organizes and reorders the workspace across owned and linked fold
   }
 });
 
-test('imported documents and folders warn before linked moves and honor the saved preference', async ({
+test('imported documents warn before linked moves and honor the saved preference', async ({
   page,
 }) => {
   const external = await mkdtemp(join(tmpdir(), 'tandem-imported-moves-'));
@@ -193,97 +176,59 @@ test('imported documents and folders warn before linked moves and honor the save
   await mkdir(join(external, 'Destination'));
   const original = join(external, 'Source', 'Nested', 'Imported.md');
   await writeFile(original, 'Imported content');
-  await writeFile(join(external, 'Source', 'Keep.md'), 'Keep source folder attached');
   await writeFile(join(external, 'Destination', 'Anchor.md'), 'Anchor');
-  await writeFile(join(external, 'Destination', 'Stay.md'), 'Keep destination attached');
   await writeFile(join(external, 'Destination', 'Collision.md'), 'Existing external content');
   const app = await harness(page);
   app.store.savePreferences({ onboarding: true });
   const attached = await app.links.attach(original);
-  await app.links.attach(join(external, 'Source', 'Keep.md'));
   const anchor = await app.links.attach(join(external, 'Destination', 'Anchor.md'));
-  await app.links.attach(join(external, 'Destination', 'Stay.md'));
   if (!attached.document || !anchor.document?.folderId) throw new Error('Missing linked fixtures');
   const collision = app.store.create({ title: 'Collision.md', titleOrigin: 'manual' });
   const document = attached.document;
-  const nested = app.store.folders().find((folder) => folder.id === document.folderId);
   const destination = app.store.folders().find((folder) => folder.id === anchor.document?.folderId);
-  if (!nested || !destination) throw new Error('Missing linked folders');
+  if (!destination) throw new Error('Missing linked destination');
   try {
     await page.goto('/');
     const warning = page.getByRole('dialog', { name: 'Move linked item?', exact: true });
-    const target = page.getByRole('treeitem', { name: destination.name, exact: true });
-    const nestedRow = page.getByRole('treeitem', { name: nested.name, exact: true });
-    await nestedRow.dragTo(target, {
+    const symlinks = page.getByRole('list', { name: 'Symlink items', exact: true });
+    const target = symlinks.locator('.symlink-row').filter({
+      has: page.getByRole('button', { name: 'Anchor.md', exact: true }),
+    });
+    const importedRow = symlinks.locator('.symlink-row').filter({
+      has: page.getByRole('button', { name: document.title, exact: true }),
+    });
+    await importedRow.dragTo(target, {
       sourcePosition: { x: 5, y: 15 },
       targetPosition: { x: 40, y: 20 },
     });
     await expect(warning).toBeVisible();
-    await expect(warning).toContainText(nested.name);
+    await expect(warning).toContainText(document.title);
     await expect(warning).toContainText(destination.name);
-    expect(app.store.folders().find((folder) => folder.id === nested.id)?.parentId).toBe(
-      nested.parentId,
-    );
-    expect(await readFile(original, 'utf8')).toBe('Imported content');
+    expect(app.store.open(document.id).linkedPath).toBe(document.linkedPath);
     await warning.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.locator('[data-slot="dialog-backdrop"]')).toHaveCount(0);
-    expect(app.store.open(document.id).linkedPath).toBe(document.linkedPath);
-    await nestedRow.dragTo(target, {
+    await importedRow.dragTo(target, {
       sourcePosition: { x: 5, y: 15 },
       targetPosition: { x: 40, y: 20 },
     });
     await expect(warning).toBeVisible();
     await warning.getByRole('button', { name: 'Confirm move', exact: true }).click();
     await expect(page.locator('[data-slot="dialog-backdrop"]')).toHaveCount(0);
-    await expect
-      .poll(() => app.store.folders().find((folder) => folder.id === nested.id)?.parentId)
-      .toBe(destination.id);
+    await expect.poll(() => app.store.open(document.id).folderId).toBe(destination.id);
     const relocated = app.store.open(document.id).linkedPath;
-    if (!relocated) throw new Error('Expected relocated descendant');
+    if (!relocated) throw new Error('Expected relocated document');
     expect(await readFile(relocated, 'utf8')).toBe('Imported content');
-    await expect(readFile(original, 'utf8')).rejects.toThrow(/ENOENT/);
-    await nestedRow.dragTo(page.getByRole('button', { name: 'Library', exact: true }), {
+    expect(await readFile(original, 'utf8')).toBe('Imported content');
+    await expect(importedRow.getByText(`${join(relocated, '..')}/`, { exact: true })).toBeVisible();
+    await importedRow.dragTo(page.getByRole('button', { name: 'Library', exact: true }), {
       sourcePosition: { x: 5, y: 15 },
     });
     await expect(warning).toBeVisible();
     await warning.getByRole('button', { name: 'Confirm move', exact: true }).click();
     await expect(page.locator('[data-slot="dialog-backdrop"]')).toHaveCount(0);
-    await expect
-      .poll(() => app.store.folders().find((folder) => folder.id === nested.id)?.parentId)
-      .toBeNull();
+    await expect.poll(() => app.store.open(document.id).folderId).toBeNull();
     expect(app.store.open(document.id).linkedPath).toBeNull();
     expect(await readFile(relocated, 'utf8')).toBe('Imported content');
-
-    // Imported documents also copy between linked locations, then detach into Library.
-    const anchorDocument = anchor.document;
-    const anchorRow = page.getByRole('treeitem', { name: anchorDocument.title, exact: true });
-    const source = app.store.folders().find((folder) => folder.name === 'Source');
-    if (!source) throw new Error('Missing source folder');
-    await anchorRow.dragTo(page.getByRole('treeitem', { name: source.name, exact: true }), {
-      sourcePosition: { x: 5, y: 15 },
-      targetPosition: { x: 40, y: 20 },
-    });
-    await expect(warning).toBeVisible();
-    expect(app.store.open(anchorDocument.id).folderId).toBe(destination.id);
-    await expect(warning).toBeVisible();
-    await warning.getByRole('button', { name: 'Confirm move', exact: true }).click();
-    await expect(page.locator('[data-slot="dialog-backdrop"]')).toHaveCount(0);
-    await expect.poll(() => app.store.open(anchorDocument.id).folderId).toBe(source.id);
-    expect(await readFile(join(external, 'Destination', 'Anchor.md'), 'utf8')).toBe('Anchor');
-    await anchorRow.dragTo(page.getByRole('button', { name: 'Library', exact: true }), {
-      sourcePosition: { x: 5, y: 15 },
-    });
-    await warning.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await expect(page.locator('[data-slot="dialog-backdrop"]')).toHaveCount(0);
-    expect(app.store.open(anchorDocument.id).folderId).toBe(source.id);
-    await anchorRow.dragTo(page.getByRole('button', { name: 'Library', exact: true }), {
-      sourcePosition: { x: 5, y: 15 },
-    });
-    await expect(warning).toBeVisible();
-    await warning.getByRole('button', { name: 'Confirm move', exact: true }).click();
-    await expect(page.locator('[data-slot="dialog-backdrop"]')).toHaveCount(0);
-    await expect.poll(() => app.store.open(anchorDocument.id).folderId).toBeNull();
-    expect(await readFile(join(external, 'Source', 'Anchor.md'), 'utf8')).toBe('Anchor');
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('tab', { name: 'Safety', exact: true }).click();
     await page
@@ -292,12 +237,18 @@ test('imported documents and folders warn before linked moves and honor the save
     await expect.poll(() => app.store.preferences().confirmLinkedDirectoryMove).toBe(false);
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page.reload();
+    // The former copy remains at the destination; move a fresh document to test the preference.
+    const fresh = app.store.create({ title: 'Fresh.md', titleOrigin: 'manual' });
+    await page.reload();
     await page
-      .getByRole('treeitem', { name: document.title, exact: true })
-      .dragTo(target, { sourcePosition: { x: 5, y: 15 }, targetPosition: { x: 40, y: 20 } });
-    await expect.poll(() => app.store.open(document.id).folderId).toBe(destination.id);
+      .getByRole('button', { name: fresh.title, exact: true })
+      .locator('..')
+      .dragTo(target, {
+        sourcePosition: { x: 5, y: 15 },
+        targetPosition: { x: 40, y: 20 },
+      });
+    await expect.poll(() => app.store.open(fresh.id).folderId).toBe(destination.id);
     await expect(warning).toBeHidden();
-    expect(await readFile(relocated, 'utf8')).toBe('Imported content');
     await page
       .getByRole('button', { name: collision.title, exact: true })
       .locator('..')

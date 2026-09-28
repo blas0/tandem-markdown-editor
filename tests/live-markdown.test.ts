@@ -1,7 +1,7 @@
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
-import { presentationFor } from '../packages/editor/live-markdown';
+import { presentationFor, rawPresentationFor } from '../packages/editor/live-markdown';
 
 describe('Markdown presentation preserves source', () => {
   it('mutes revealed formatting markers without muting the heading or prose', () => {
@@ -65,5 +65,55 @@ describe('Markdown presentation preserves source', () => {
         (m) => m.className === 'cm-table-cell',
       ),
     ).toBe(false);
+  });
+});
+
+describe('Raw Markdown presentation', () => {
+  it('shows all syntax and mutes markers without applying formatted display', () => {
+    const source =
+      '# Heading\n\n**bold** *italic* ~~strike~~ `code`\n\n- [ ] task\n\n![alt](image.png) [link](https://example.com)\n\n<u>under</u>\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
+    const state = EditorState.create({
+      doc: source,
+      extensions: [markdown({ base: markdownLanguage })],
+    });
+    const p = rawPresentationFor(state);
+    expect(p.hidden).toEqual([]);
+    expect(p.images).toEqual([]);
+    expect(p.lines).toEqual([]);
+    expect(p.marks.every((mark) => mark.className === 'cm-format-marker')).toBe(true);
+    const markers = p.marks.map((mark) => source.slice(mark.from, mark.to));
+    expect(markers).toEqual(
+      expect.arrayContaining([
+        '#',
+        '**',
+        '*',
+        '~~',
+        '`',
+        '-',
+        '[ ]',
+        '![',
+        ']',
+        '(',
+        ')',
+        '<u>',
+        '</u>',
+        '|',
+      ]),
+    );
+    expect(markers).not.toContain('bold');
+    expect(markers).not.toContain('Heading');
+    expect(state.doc.toString()).toBe(source);
+  });
+
+  it('does not interpret Markdown inside literal code or alter malformed input', () => {
+    const source = '**unfinished\n\n\\*literal\\*\n\n```js\n**code**\n```';
+    const state = EditorState.create({
+      doc: source,
+      extensions: [markdown({ base: markdownLanguage })],
+    });
+    const p = rawPresentationFor(state);
+    expect(p.marks.map((mark) => source.slice(mark.from, mark.to))).toEqual(['```', 'js', '```']);
+    expect(p.hidden).toEqual([]);
+    expect(state.doc.toString()).toBe(source);
   });
 });

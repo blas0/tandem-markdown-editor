@@ -15,6 +15,18 @@ export type SavedEdit =
 export function savedNode(content: SavedContent) {
   return schema.nodeFromJSON(content.mode === 'markdown' ? astFor(content) : content.ast);
 }
+export function verifySavedContent(content: SavedContent) {
+  if (
+    !content ||
+    typeof content !== 'object' ||
+    !['markdown', 'rich'].includes(content.mode) ||
+    typeof content.markdown !== 'string'
+  )
+    throw new Error('Invalid document content');
+  // Markdown's AST is only a rendering cache. A parser/schema limitation is
+  // not evidence of damaged source. Legacy rich documents still depend on AST.
+  if (content.mode === 'rich') savedNode(content).check();
+}
 export function restoreMarkdown(content: SavedContent): Content {
   if (content.mode === 'markdown') return content;
   let source: string;
@@ -38,7 +50,7 @@ export function restoreMarkdown(content: SavedContent): Content {
 export function replaySavedEdit(content: SavedContent, edit: SavedEdit): SavedContent {
   if (edit.kind === 'batch') return edit.edits.reduce(replaySavedEdit, content);
   if (edit.kind === 'replace') {
-    savedNode(edit.content).check();
+    verifySavedContent(edit.content);
     return structuredClone(edit.content);
   }
   if (edit.kind === 'source') return applyEdit(restoreMarkdown(content), edit);

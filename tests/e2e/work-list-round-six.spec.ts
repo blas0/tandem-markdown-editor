@@ -135,7 +135,7 @@ test('settings omit the Toggles heading and the editor defaults to Paragraph', a
   }
 });
 
-test('review choices share one menu and tooltips wait one second', async ({ page }) => {
+test('review choices share one menu and tooltips wait half a second', async ({ page }) => {
   const app = await harness(page);
   app.store.savePreferences({ onboarding: true });
   const doc = app.store.create({ title: 'Toolbar fixture' });
@@ -165,11 +165,11 @@ test('review choices share one menu and tooltips wait one second', async ({ page
 
     const bold = page.getByRole('button', { name: 'Bold', exact: true });
     await bold.hover();
-    await page.waitForTimeout(850);
+    await page.waitForTimeout(300);
     const tooltip = page.locator('[data-slot="tooltip-popup"]');
     await expect(tooltip).toHaveCount(0);
     await expect(tooltip).toHaveText('Bold', { timeout: 1500 });
-    await expect(tooltip).toHaveCSS('transition-duration', '0.5s');
+    await expect(tooltip).toHaveCSS('transition-duration', '0s');
   } finally {
     await app.close();
   }
