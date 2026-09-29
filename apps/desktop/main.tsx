@@ -7,11 +7,13 @@ import {
   type Document as Doc,
   type DocumentMeta,
   type Edit,
+  type FilenameConflict,
   type Folder,
   folderPatch,
   linkedRoot,
   type Preferences,
   type ProviderStatus,
+  parseFilenameConflict,
   type Review,
   uuid,
   workspaceMoveInvolvesLinkedDirectory,
@@ -165,6 +167,10 @@ function App() {
       resolve: (confirmed: boolean) => void;
     } | null>(null),
     [folderEdit, setFolderEdit] = useState<Folder | null>(null),
+    [filenamePending, setFilenamePending] = useState<{
+      conflict: FilenameConflict;
+      resolve: (name: string | null) => void;
+    } | null>(null),
     [importWarning, setImportWarning] = useState<{
       grant: string;
       linked?: boolean;
@@ -214,7 +220,10 @@ function App() {
   });
   const fileInFlight = useRef(false);
   const reportError = useCallback((error: unknown) => {
-    const description = String(error);
+    const conflict = parseFilenameConflict(error);
+    const description = conflict
+      ? `An item named "${conflict.fileName}" already exists in ${conflict.directory}. Choose a different name.`
+      : String(error);
     setError(description);
     toastManager.add({
       id: 'tandem-global-error',
@@ -295,17 +304,32 @@ function App() {
       await library();
     }
   };
+  const withAvailableFilename = async <T,>(attempt: (title?: string) => Promise<T>) => {
+    let title: string | undefined;
+    for (;;) {
+      try {
+        return await attempt(title);
+      } catch (error) {
+        const conflict = parseFilenameConflict(error);
+        if (!conflict) throw error;
+        const name = await new Promise<string | null>((resolve) =>
+          setFilenamePending({ conflict, resolve }),
+        );
+        if (name === null) return undefined;
+        title = name;
+      }
+    }
+  };
   const create = async (format: 'md' = 'md', folderId: string | null = null) => {
     await editor.current?.flush();
+    const id = uuid();
+    const created = await withAvailableFilename((title) =>
+      rpc<Doc>('documents.create', { id, format, folderId, ...(title ? { title } : {}) }),
+    );
+    if (!created) return;
     setScope(folderId ?? 'library');
     setNavigationCleared(false);
-    setDocument(
-      await rpc<Doc>('documents.create', {
-        id: uuid(),
-        format,
-        folderId,
-      }),
-    );
+    setDocument(created);
     await library();
   };
   const openCadence = async (cadence: Cadence) => {
@@ -619,8 +643,14 @@ function App() {
       if (!(await moveWorkspaceItem({ kind: 'document', id: d.id }, folderId))) return;
     await editor.current?.flush();
     const updated = Object.keys(changes).length
-      ? await rpc<Doc>('documents.update', { id: d.id, patch: changes })
+      ? await withAvailableFilename((title) =>
+          rpc<Doc>('documents.update', {
+            id: d.id,
+            patch: { ...changes, ...(title ? { title } : {}) },
+          }),
+        )
       : await rpc<Doc>('documents.open', { id: d.id });
+    if (!updated) return;
     updateOpenDocuments((open) => (open.id === updated.id ? updated : open));
     await library();
   };
@@ -672,12 +702,16 @@ function App() {
       if (!confirmed) return false;
     }
     await editor.current?.flush();
-    await rpc('workspace.move', {
-      item,
-      destinationId,
-      beforeId: beforeId ?? null,
-      confirmed: involvesLinkedDirectory,
-    });
+    const move = (title?: string) =>
+      rpc('workspace.move', {
+        item,
+        destinationId,
+        beforeId: beforeId ?? null,
+        confirmed: involvesLinkedDirectory,
+        ...(title ? { title } : {}),
+      });
+    const movedItems = item.kind === 'document' ? await withAvailableFilename(move) : await move();
+    if (!movedItems) return false;
     if (document) {
       const moved = await rpc<Doc>('documents.open', { id: document.id });
       setDocument(moved);
@@ -1150,7 +1184,12 @@ function App() {
                           providers={providers}
                           savePrefs={savePrefs}
                           onRename={async (title) => {
-                            await rpc('documents.update', { id: doc.id, patch: { title } });
+                            await withAvailableFilename((replacement) =>
+                              rpc('documents.update', {
+                                id: doc.id,
+                                patch: { title: replacement ?? title },
+                              }),
+                            );
                             await library();
                           }}
                           actions={docActions(doc)}
@@ -1306,6 +1345,15 @@ function App() {
             })
           }
           onArchive={() => run(() => trashFolder(folderEdit))}
+        />
+      )}
+      {filenamePending && (
+        <FilenameConflictDialog
+          conflict={filenamePending.conflict}
+          onChoose={(name) => {
+            filenamePending.resolve(name);
+            setFilenamePending(null);
+          }}
         />
       )}
       <TitledDialog
@@ -2839,6 +2887,55 @@ createRoot(root).render(
     </ToastProvider>
   </TooltipProvider>,
 );
+
+function FilenameConflictDialog({
+  conflict,
+  onChoose,
+}: {
+  conflict: FilenameConflict;
+  onChoose: (name: string | null) => void;
+}) {
+  const [name, setName] = useState(conflict.fileName);
+  return (
+    <TitledDialog
+      title="Choose a different file name"
+      open
+      onOpenChange={(open) => {
+        if (!open) onChoose(null);
+      }}
+    >
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (name.trim()) onChoose(name.trim());
+        }}
+      >
+        <p>
+          An item named {conflict.fileName} already exists in this directory. Rename your document
+          to continue. The existing item will stay unchanged.
+        </p>
+        <p className="break-all text-muted-foreground">{conflict.directory}</p>
+        <TextField
+          label="File name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          onFocus={(event) => event.target.select()}
+          maxLength={120}
+          required
+        />
+        <div className="flex items-center gap-3">
+          <Button type="button" variant="outline" onClick={() => onChoose(null)}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!name.trim()}>
+            Rename and continue
+          </Button>
+        </div>
+      </form>
+    </TitledDialog>
+  );
+}
 
 function DocumentBreadcrumb({
   document: doc,

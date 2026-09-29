@@ -11,7 +11,13 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
-import { type Content, type Document, emptyContent, uuid } from '../contracts';
+import {
+  type Content,
+  type Document,
+  emptyContent,
+  FilenameConflictError,
+  uuid,
+} from '../contracts';
 import { sourceFor } from '../document';
 import type { Store } from '../persistence';
 import { embedMarkdownImages } from './markdown-images';
@@ -176,14 +182,23 @@ export class Files {
     return { content, warnings };
   }
   async export(id: string, path: string, expectedHash?: string, exclusive = false) {
+    const result = await this.exportContent(this.store.open(id), path, expectedHash, exclusive);
+    return { path: result.path, revision: result.revision };
+  }
+  async exportContent(
+    doc: Pick<Document, 'content' | 'revision' | 'recoveryReadOnly'>,
+    path: string,
+    expectedHash?: string,
+    exclusive = false,
+  ) {
     const format = extname(path).slice(1).toLowerCase();
     if (!formats.includes(format)) throw new Error('Choose a Markdown export extension');
-    const doc = this.store.open(id);
     // Edits are already durable in the operation journal. Plain exports only read them.
     // Recovery may create a new copy, but must never replace an existing file.
     if (doc.recoveryReadOnly) exclusive = true;
     const temp = join(dirname(path), `.tandem-${uuid()}.${format}`);
     let completed = false;
+    let publishedHash = '';
     try {
       {
         let source = sourceFor(doc.content);
@@ -197,6 +212,7 @@ export class Files {
           await writeFile(join(dirname(path), directory, name), bytes);
           source = source.replaceAll(match[0], `${encodeURIComponent(directory)}/${name}`);
         }
+        publishedHash = createHash('sha256').update(source, 'utf8').digest('hex');
         await writeFile(temp, source, 'utf8');
       }
       if (
@@ -213,7 +229,7 @@ export class Files {
           await link(temp, path);
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code === 'EEXIST')
-            throw new Error('An item with that name already exists in the destination');
+            throw new FilenameConflictError(basename(path), dirname(path));
           throw error;
         }
         await unlink(temp);
@@ -222,6 +238,6 @@ export class Files {
     } finally {
       if (!completed) await rm(temp, { force: true }).catch(() => {});
     }
-    return { path, revision: doc.revision };
+    return { path, revision: doc.revision, publishedHash };
   }
 }

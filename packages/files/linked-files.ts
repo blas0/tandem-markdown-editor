@@ -1,9 +1,27 @@
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, readdir, readFile, realpath, rename, rmdir, stat } from 'node:fs/promises';
+import {
+  link,
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rmdir,
+  stat,
+  unlink,
+} from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, extname, join, parse, relative, sep } from 'node:path';
 import type { Content, Document, Folder } from '../contracts';
-import { canMoveWorkspaceItem, immovableItemMessage, linkedRoot, uuid } from '../contracts';
+import {
+  canMoveWorkspaceItem,
+  emptyContent,
+  FilenameConflictError,
+  immovableItemMessage,
+  linkedRoot,
+  uuid,
+} from '../contracts';
 import type { Store } from '../persistence';
 import { editableFormat, type Files } from './index';
 
@@ -11,7 +29,7 @@ const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex
 async function ensureMissing(path: string) {
   try {
     await lstat(path);
-    throw new Error('An item with that name already exists in the destination');
+    throw new FilenameConflictError(basename(path), dirname(path));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
@@ -22,7 +40,7 @@ async function relocateDirectory(from: string, to: string) {
     await mkdir(to);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'EEXIST')
-      throw new Error('An item with that name already exists in the destination');
+      throw new FilenameConflictError(basename(to), dirname(to));
     throw error;
   }
   const reservation = await lstat(to);
@@ -44,8 +62,8 @@ async function relocateDirectory(from: string, to: string) {
 /** True when both paths name one entry, as a case-only rename does on a case-insensitive disk. */
 async function sameEntry(a: string, b: string) {
   try {
-    const [first, second] = await Promise.all([lstat(a), lstat(b)]);
-    return first.ino === second.ino && first.dev === second.dev;
+    const [first, second, target] = await Promise.all([realpath(a), realpath(b), lstat(b)]);
+    return !target.isSymbolicLink() && first === second;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
     throw error;
@@ -56,8 +74,21 @@ async function renameEntry(from: string, to: string, directory: boolean) {
   if (await sameEntry(from, to)) await rename(from, to);
   else if (directory) await relocateDirectory(from, to);
   else {
-    await ensureMissing(to);
-    await rename(from, to);
+    // Hard-link publication is exclusive, unlike check-then-rename. The filesystem
+    // enforces its own case and Unicode equivalence rules, including dangling links.
+    try {
+      await link(from, to);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+        throw new FilenameConflictError(basename(to), dirname(to));
+      throw error;
+    }
+    try {
+      await unlink(from);
+    } catch (error) {
+      await unlink(to).catch(() => {});
+      throw error;
+    }
   }
 }
 function folderDepth(folder: Folder, folders: Folder[]) {
@@ -482,6 +513,34 @@ export class LinkedFiles {
       this.paused.delete(id);
     }
   }
+  async create(input: Partial<Document>) {
+    const directory = await this.linkedDirectory(input.folderId ?? null);
+    if (!directory) return this.store.create(input);
+    if (input.id && this.store.list().some((doc) => doc.id === input.id))
+      return this.store.open(input.id);
+    const title = input.title ?? 'Untitled.md';
+    if (!title.trim()) throw new Error('Document needs a name');
+    const base = fileName(title.replace(/\.(md|txt|rtf|docx?)$/i, '')) || 'Untitled';
+    const path = join(directory, `${base}.md`);
+    await ensureMissing(path);
+    const content = input.content ?? emptyContent();
+    const published = await this.files.exportContent(
+      { content, revision: 0 },
+      path,
+      undefined,
+      true,
+    );
+    // Record exactly what we published, so a subsequent external write remains detectable.
+    // On persistence failure leave the file recoverable; its path may now hold someone else's data.
+    return this.store.create({
+      ...input,
+      content,
+      linkedPath: path,
+      linkedHash: published.publishedHash,
+      linkedRevision: 0,
+    });
+  }
+
   async place(id: string, folderId: string | null) {
     const folder = this.store.folders().find((f) => f.id === folderId);
     let doc = this.store.open(id);
@@ -495,16 +554,12 @@ export class LinkedFiles {
       });
     }
     if (doc.folderId === folderId && doc.linkedPath) return doc;
-    const extension = 'md';
-    const base = fileName(doc.title.replace(/\.(md|txt|rtf|docx?)$/i, ''));
-    let path = join(folder.linkedPath, `${base}.${extension}`);
-    try {
-      await stat(path);
-      path = join(folder.linkedPath, `${base}-${uuid().slice(0, 8)}.${extension}`);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    }
-    await this.files.export(id, path);
+    const directory = await this.linkedDirectory(folderId);
+    if (!directory) throw new Error('Destination folder not found');
+    const base = fileName(doc.title.replace(/\.(md|txt|rtf|docx?)$/i, '')) || 'Untitled';
+    const path = join(directory, `${base}.md`);
+    await ensureMissing(path);
+    await this.files.export(id, path, undefined, true);
     doc = this.store.update(id, {
       folderId,
       linkedPath: path,
@@ -540,7 +595,10 @@ export class LinkedFiles {
     item: { kind: 'document' | 'folder'; id: string },
     destinationId: string | null,
     beforeId: string | null,
+    title?: string,
   ) {
+    if (title !== undefined && (item.kind !== 'document' || !title.trim() || title.length > 120))
+      throw new Error('Use a document title between 1 and 120 characters');
     const folders = this.store.folders();
     const documents = this.store.list();
     const sourceFolder =
@@ -641,13 +699,22 @@ export class LinkedFiles {
         linked: Boolean(destinationPath),
       };
       if (!destinationPath) {
-        this.store.organize(item, destinationId, beforeId, links);
+        this.store.atomic(() => {
+          this.store.organize(item, destinationId, beforeId, links);
+          if (title !== undefined) this.store.update(item.id, { title, titleOrigin: 'manual' });
+        });
         this.store.pruneLinkedFolders(previousParentId);
         return { documents: this.store.list(), folders: this.store.folders() };
       }
 
       const documentName = (document: Document) => {
-        const base = fileName(document.title.replace(/\.(md|txt|rtf|docx?)$/i, '')) || 'Untitled';
+        const base =
+          fileName(
+            (document.id === item.id ? (title ?? document.title) : document.title).replace(
+              /\.(md|txt|rtf|docx?)$/i,
+              '',
+            ),
+          ) || 'Untitled';
         return `${base}.md`;
       };
       const cleanupDirectories: string[] = [];
@@ -745,7 +812,10 @@ export class LinkedFiles {
           if (this.store.open(id).revision !== link.linkedRevision)
             throw new Error('The document changed while moving this item. Try again.');
         }
-        this.store.organize(item, destinationId, beforeId, links);
+        this.store.atomic(() => {
+          this.store.organize(item, destinationId, beforeId, links);
+          if (title !== undefined) this.store.update(item.id, { title, titleOrigin: 'manual' });
+        });
         this.store.pruneLinkedFolders(previousParentId);
         cleanupDirectories.length = 0;
         relocations.length = 0;
