@@ -180,6 +180,8 @@ export class Files {
     if (!formats.includes(format)) throw new Error('Choose a Markdown export extension');
     const doc = this.store.open(id);
     // Edits are already durable in the operation journal. Plain exports only read them.
+    // Recovery may create a new copy, but must never replace an existing file.
+    if (doc.recoveryReadOnly) exclusive = true;
     const temp = join(dirname(path), `.tandem-${uuid()}.${format}`);
     let completed = false;
     try {

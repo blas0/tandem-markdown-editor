@@ -14,6 +14,7 @@ test('Library lists loose documents below its folders and cadences follow the ru
   app.store.savePreferences({ onboarding: true });
   app.store.saveFolder({ id: 'alpha', name: 'Alpha folder' });
   app.store.saveFolder({ id: 'linked', name: 'Linked folder', linkedPath: '/fixture/linked' });
+  app.store.create({ title: 'Linked note.md', folderId: 'linked', format: 'md' });
   app.store.create({ title: 'Zulu loose note' });
   try {
     await page.goto('/');
@@ -29,7 +30,7 @@ test('Library lists loose documents below its folders and cadences follow the ru
     // Folders list above documents at the Library root, as they do in every directory.
     const alpha = await bounds(page.getByRole('treeitem', { name: 'Alpha folder', exact: true }));
     expect(loose.y).toBeGreaterThan(alpha.y);
-    const linked = await bounds(page.getByRole('treeitem', { name: 'Linked folder', exact: true }));
+    const linked = await bounds(page.getByRole('button', { name: 'Linked note.md', exact: true }));
     expect(linked.y).toBeGreaterThan(loose.y);
     const rule = await bounds(nav.locator('.nav-scroll [data-slot="separator"]').first());
     const cadences = await bounds(nav.getByRole('region', { name: 'Cadences', exact: true }));

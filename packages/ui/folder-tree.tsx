@@ -7,6 +7,7 @@ import { DocumentIcon } from './document-icon';
 import { ChevronsUpDown, Folder as FolderIcon, FolderOpen, GitConnection, Plus } from './icons';
 import { folderColors } from './palette';
 import { ActionMenu, ExpandToggle, IconButton, IconSwap } from './primitives';
+import { symlinkRows } from './symlink-groups';
 
 type Actions = React.ComponentProps<typeof ActionMenu>['items'];
 export type MoveItem = { kind: 'document' | 'folder'; id: string };
@@ -242,19 +243,6 @@ const compareRows = (
     b.folder?.name ?? b.document?.title ?? '',
   ) ||
   a.id.localeCompare(b.id);
-function normalizedActions(actions: Actions): Actions {
-  const result: Actions = [];
-  for (const action of actions) {
-    if ('separator' in action) {
-      const previous = result[result.length - 1];
-      if (!previous || 'separator' in previous) continue;
-    }
-    result.push(action);
-  }
-  const last = result[result.length - 1];
-  if (last && 'separator' in last) result.pop();
-  return result;
-}
 type Row = {
   id: string;
   parentId: string | null;
@@ -764,12 +752,8 @@ export function FolderTree({
         canMove={canMove}
         drag={drag}
         beginDrag={beginDrag}
-        onSelect={onSelect}
         onMove={move}
         onDocument={onDocument}
-        onEdit={onEdit}
-        createActions={createActions}
-        folderActions={folderActions}
         documentActions={documentActions}
       />
       <Separator />
@@ -786,12 +770,8 @@ function SymlinkNavigation({
   canMove,
   drag,
   beginDrag,
-  onSelect,
   onMove,
   onDocument,
-  onEdit,
-  createActions,
-  folderActions,
   documentActions,
 }: {
   folders: Folder[];
@@ -801,57 +781,16 @@ function SymlinkNavigation({
   canMove: (item: MoveItem) => boolean;
   drag: ReturnType<typeof useDropIndicator>;
   beginDrag: (event: React.DragEvent, item: MoveItem) => void;
-  onSelect: (id: string) => void;
   onMove: (item: MoveItem, destinationId: string | null, beforeId?: string) => void;
   onDocument?: (document: DocumentMeta) => void;
-  onEdit: (folder: Folder) => void;
-  createActions?: (folderId: string | null) => Actions;
-  folderActions?: (folder: Folder) => Actions;
   documentActions?: (document: DocumentMeta) => Actions;
 }) {
   const [sectionCollapsed, setSectionCollapsed] = useState(
     () => localStorage.getItem('tandem:collapsed-symlinks') === 'true',
   );
-  const [collapsed, setCollapsed] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('tandem:collapsed-symlink-folders') ?? '[]');
-    } catch {
-      return [];
-    }
-  });
-  const rows = useMemo(() => {
-    const result: Row[] = [];
-    const folderIds = new Set(folders.map((folder) => folder.id));
-    const children = new Map<string | null, Array<{ folder?: Folder; document?: DocumentMeta }>>();
-    for (const folder of folders) {
-      const parent = folder.parentId && folderIds.has(folder.parentId) ? folder.parentId : null;
-      children.set(parent, [...(children.get(parent) ?? []), { folder }]);
-    }
-    for (const document of documents) {
-      const parent =
-        document.folderId && folderIds.has(document.folderId) ? document.folderId : null;
-      children.set(parent, [...(children.get(parent) ?? []), { document }]);
-    }
-    const walk = (parentId: string | null, depth: number) => {
-      const items = (children.get(parentId) ?? []).sort((a, b) =>
-        compareRows(
-          { ...a, id: a.folder?.id ?? a.document?.id ?? '' },
-          { ...b, id: b.folder?.id ?? b.document?.id ?? '' },
-        ),
-      );
-      items.forEach((item, index) => {
-        const id = item.folder?.id ?? item.document?.id;
-        if (!id) return;
-        result.push({ ...item, id, parentId, depth, position: index + 1, size: items.length });
-        if (item.folder && !collapsed.includes(id)) walk(id, depth + 1);
-      });
-    };
-    walk(null, 1);
-    return result;
-  }, [folders, documents, collapsed]);
-  const refs = useRef(new Map<string, HTMLDivElement>());
-  const host = useRef<HTMLDivElement>(null);
-  const [focused, setFocused] = useState('');
+  const rows = useMemo(() => symlinkRows(folders, documents), [folders, documents]);
+  const refs = useRef(new Map<string, HTMLButtonElement>());
+  const host = useRef<HTMLUListElement>(null);
   const [actionMenu, setActionMenu] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ top: 0, height: 800 });
   useLayoutEffect(() => {
@@ -867,37 +806,32 @@ function SymlinkNavigation({
     scroll.addEventListener('scroll', measure, { passive: true });
     const observer = new ResizeObserver(measure);
     observer.observe(scroll);
+    observer.observe(element);
     return () => {
       scroll.removeEventListener('scroll', measure);
       observer.disconnect();
     };
-  }, [rows.length, sectionCollapsed]);
-  const start = Math.max(
-    0,
-    Math.min(Math.max(0, rows.length - 1), Math.floor(viewport.top / 28) - 8),
-  );
-  const end = Math.min(rows.length, start + Math.ceil(viewport.height / 28) + 16);
-  const toggleFolder = (id: string) =>
-    setCollapsed((old) => {
-      const next = old.includes(id) ? old.filter((value) => value !== id) : [...old, id];
-      localStorage.setItem('tandem:collapsed-symlink-folders', JSON.stringify(next));
-      return next;
-    });
-  const focus = (id?: string) => {
-    if (!id) return;
-    setFocused(id);
-    const index = rows.findIndex((row) => row.id === id);
+  }, [sectionCollapsed]);
+  const first = rows.findIndex((row) => row.top + row.height > viewport.top);
+  const start = Math.max(0, (first < 0 ? rows.length - 1 : first) - 8);
+  const end = Math.min(rows.length, start + Math.ceil(viewport.height / 48) + 16);
+  const totalHeight = (rows.at(-1)?.top ?? 0) + (rows.at(-1)?.height ?? 0);
+  const focus = (index: number) => {
+    const row = rows[index];
+    if (!row) return;
     const scroll = host.current?.closest<HTMLElement>('.nav-scroll');
-    if (scroll && host.current && index >= 0) {
+    if (scroll && host.current) {
       const top =
         host.current.getBoundingClientRect().top -
         scroll.getBoundingClientRect().top +
         scroll.scrollTop +
-        index * 28;
-      if (top < scroll.scrollTop || top + 28 > scroll.scrollTop + scroll.clientHeight)
+        row.top;
+      if (top < scroll.scrollTop || top + row.height > scroll.scrollTop + scroll.clientHeight) {
         scroll.scrollTop = top;
+        setViewport({ top: row.top, height: scroll.clientHeight });
+      }
     }
-    requestAnimationFrame(() => refs.current.get(id)?.focus());
+    requestAnimationFrame(() => refs.current.get(row.document.id)?.focus());
   };
   return (
     <section
@@ -922,138 +856,90 @@ function SymlinkNavigation({
         Symlinks
       </ExpandToggle>
       {!sectionCollapsed && (
-        <div ref={host} className="folder-tree" role="tree" aria-label="Symlink items">
-          <div role="presentation" style={{ height: start * 28 }} />
+        <ul ref={host} className="m-0 list-none p-0" aria-label="Symlink items">
+          <li aria-hidden="true" style={{ height: rows[start]?.top ?? 0 }} />
           {rows.slice(start, end).map((row, offset) => {
             const index = start + offset;
-            const { folder, document, id } = row;
-            const childCount = folder
-              ? folders.filter((candidate) => candidate.parentId === id).length +
-                documents.filter((candidate) => candidate.folderId === id).length
-              : 0;
-            const expanded = !collapsed.includes(id);
-            const label = folder?.name ?? document?.title ?? '';
-            const inheritedLink = Boolean(folder && !folder.linkedPath);
-            const itemActions = folder
-              ? normalizedActions(
-                  (folderActions?.(folder) ?? []).filter(
-                    (action) =>
-                      !inheritedLink ||
-                      'separator' in action ||
-                      !/^Move to archive$/i.test(action.label),
-                  ),
-                )
-              : document
-                ? (documentActions?.(document) ?? [])
-                : [];
-            const open = () => {
-              focus(id);
-              if (folder) {
-                onSelect(id);
-                if (childCount) toggleFolder(id);
-              } else if (document) onDocument?.(document);
-            };
+            const { document, name, directory } = row;
+            const path = `${directory.replace(/\/$/, '')}/`;
+            const lastSlash = directory.lastIndexOf('/');
+            const { id } = document;
+            const actions = documentActions?.(document) ?? [];
             return (
-              <div
-                key={id}
-                ref={(element) => {
-                  if (element) refs.current.set(id, element);
-                  else refs.current.delete(id);
-                }}
-                className="folder-row"
-                data-workspace-id={id}
-                data-drop-position={drag.target?.id === id ? drag.target.position : undefined}
-                draggable
-                data-immovable={!canMove({ kind: folder ? 'folder' : 'document', id }) || undefined}
-                {...rowIndent(row, folders)}
-                role="treeitem"
-                aria-label={label}
-                aria-level={row.depth}
-                aria-posinset={row.position}
-                aria-setsize={row.size}
-                aria-selected={Boolean(document && activeDocument === id)}
-                aria-expanded={folder && childCount ? expanded : undefined}
-                tabIndex={(focused || rows[0]?.id) === id ? 0 : -1}
-                onFocus={() => setFocused(id)}
-                onContextMenu={(event) => event.preventDefault()}
-                onDragStart={(event) => {
-                  event.stopPropagation();
-                  beginDrag(event, { kind: folder ? 'folder' : 'document', id });
-                }}
-                onDragOver={(event) => drag.over(event, id, row.parentId, Boolean(folder))}
-                onDragEnter={(event) => drag.over(event, id, row.parentId, Boolean(folder))}
-                onDragLeave={drag.leave}
-                onDragEnd={drag.end}
-                onDrop={(event) => drag.drop(event, onMove)}
-                onKeyDown={(event) => {
-                  if (event.target !== event.currentTarget) return;
-                  if (event.key === 'ArrowDown') focus(rows[index + 1]?.id);
-                  else if (event.key === 'ArrowUp') focus(rows[index - 1]?.id);
-                  else if (event.key === 'Home') focus(rows[0]?.id);
-                  else if (event.key === 'End') focus(rows.at(-1)?.id);
-                  else if (event.key === 'ArrowRight' && folder && childCount && !expanded)
-                    toggleFolder(id);
-                  else if (event.key === 'ArrowLeft' && folder && childCount && expanded)
-                    toggleFolder(id);
-                  else if (event.key === 'ArrowLeft') focus(row.parentId ?? undefined);
-                  else if (event.key === 'F2' && folder) {
-                    if (inheritedLink) setActionMenu(id);
-                    else onEdit(folder);
-                  } else if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))
-                    setActionMenu(id);
-                  else if (event.key === 'Enter' || event.key === ' ') open();
-                  else return;
-                  event.preventDefault();
-                }}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="navigation-item w-full justify-start font-normal aria-[current=page]:bg-accent"
-                  aria-current={document && activeDocument === id ? 'page' : undefined}
-                  data-related={related.has(id) || undefined}
-                  tabIndex={-1}
-                  onClick={open}
+              <li key={id} aria-posinset={index + 1} aria-setsize={rows.length}>
+                {row.separator && (
+                  <div className="symlink-group-separator">
+                    <Separator />
+                  </div>
+                )}
+                <fieldset
+                  className="symlink-row folder-row"
+                  aria-label={name}
+                  data-workspace-id={id}
+                  data-drop-position={drag.target?.id === id ? drag.target.position : undefined}
+                  draggable
+                  data-immovable={!canMove({ kind: 'document', id }) || undefined}
+                  onDragStart={(event) => {
+                    event.stopPropagation();
+                    beginDrag(event, { kind: 'document', id });
+                  }}
+                  onDragOver={(event) => drag.over(event, id, document.folderId)}
+                  onDragEnter={(event) => drag.over(event, id, document.folderId)}
+                  onDragLeave={drag.leave}
+                  onDragEnd={drag.end}
+                  onDrop={(event) => drag.drop(event, onMove)}
                 >
-                  {folder ? (
-                    <GitConnection size={14} {...folderIcon(folder.color)} />
-                  ) : (
-                    <DocumentIcon size={14} />
+                  <Button
+                    ref={(element) => {
+                      if (element) refs.current.set(id, element);
+                      else refs.current.delete(id);
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="navigation-item font-normal aria-[current=page]:bg-accent"
+                    aria-label={name}
+                    aria-describedby={`symlink-path-${id}`}
+                    aria-current={activeDocument === id ? 'page' : undefined}
+                    data-related={related.has(id) || undefined}
+                    onContextMenu={(event) => event.preventDefault()}
+                    onClick={() => onDocument?.(document)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'ArrowDown') focus(index + 1);
+                      else if (event.key === 'ArrowUp') focus(index - 1);
+                      else if (event.key === 'Home') focus(0);
+                      else if (event.key === 'End') focus(rows.length - 1);
+                      else if (
+                        actions.length &&
+                        (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))
+                      )
+                        setActionMenu(id);
+                      else return;
+                      event.preventDefault();
+                    }}
+                  >
+                    <span className="symlink-name">{name}</span>
+                    <span className="symlink-path" id={`symlink-path-${id}`} title={path}>
+                      <span className="symlink-path-prefix">{path.slice(0, lastSlash)}</span>
+                      <span className="symlink-path-leaf">{path.slice(lastSlash)}</span>
+                    </span>
+                  </Button>
+                  {actions.length > 0 && (
+                    <ActionMenu
+                      label={`Actions for ${name}`}
+                      open={actionMenu === id}
+                      onOpenChange={(open) => setActionMenu(open ? id : null)}
+                      items={actions}
+                    />
                   )}
-                  <span>{label}</span>
-                  {folder && childCount > 0 && (
-                    <ChevronsUpDown size={14} className="sidebar-expand-icon" />
-                  )}
-                </Button>
-                {folder && createActions && (
-                  <ActionMenu
-                    label={`New document in ${label}`}
-                    items={createActions(id)}
-                    trigger={
-                      <IconButton
-                        className="folder-action"
-                        label={`New document in ${label}`}
-                        variant="ghost"
-                      >
-                        <Plus size={14} />
-                      </IconButton>
-                    }
-                  />
-                )}
-                {itemActions.length > 0 && (
-                  <ActionMenu
-                    label={`Actions for ${folder ? 'folder ' : ''}${label}`}
-                    tabIndex={-1}
-                    open={actionMenu === id}
-                    onOpenChange={(open) => setActionMenu(open ? id : null)}
-                    items={itemActions}
-                  />
-                )}
-              </div>
+                </fieldset>
+              </li>
             );
           })}
-          <div role="presentation" style={{ height: (rows.length - end) * 28 }} />
-        </div>
+          <li
+            aria-hidden="true"
+            style={{ height: totalHeight - (rows[end]?.top ?? totalHeight) }}
+          />
+        </ul>
       )}
     </section>
   );

@@ -13,6 +13,7 @@ test('sidebar hierarchy uses small controls and reserves tooltips for actions', 
   app.store.savePreferences({ onboarding: true });
   app.store.saveFolder({ id: 'regular', name: 'Regular folder' });
   app.store.saveFolder({ id: 'linked', name: 'Linked folder', linkedPath: '/fixture/linked' });
+  app.store.create({ title: 'Linked note.md', folderId: 'linked', format: 'md' });
   app.store.create({ title: 'Loose note.md' });
   app.store.create({ title: 'Nested note.md', folderId: 'regular' });
   try {
@@ -26,14 +27,14 @@ test('sidebar hierarchy uses small controls and reserves tooltips for actions', 
       await heading.hover();
       await expect(heading).toHaveCSS('text-decoration-line', 'underline');
     }
-    for (const name of ['Regular folder', 'Linked folder']) {
+    for (const name of ['Regular folder']) {
       const folder = nav.getByRole('button', { name, exact: true });
       await expect(folder).toHaveCSS('font-weight', '400');
       await folder.hover();
       await page.waitForTimeout(1600);
       await expect(page.locator('[data-slot=tooltip-popup]')).toHaveCount(0);
     }
-    for (const name of ['Loose note.md', 'Nested note.md']) {
+    for (const name of ['Loose note.md', 'Nested note.md', 'Linked note.md']) {
       const document = nav.getByRole('button', { name, exact: true });
       await expect(document).toHaveCSS('font-weight', '400');
       await document.hover();

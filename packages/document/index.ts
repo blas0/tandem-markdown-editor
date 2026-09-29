@@ -54,10 +54,33 @@ export function extensions() {
 }
 export const schema = getSchema(extensions());
 export const markdown = new MarkdownManager({ extensions: extensions() });
-function normalizeListItems(node: JSONContent): JSONContent {
+function normalizeBlocks(node: JSONContent): JSONContent {
+  const children = node.content?.flatMap((child) => {
+    const normalized = normalizeBlocks(child);
+    // Markdown images can share a paragraph with prose, but our image schema is
+    // a block. Lift them out without dropping the text on either side.
+    if (
+      !['paragraph', 'heading'].includes(normalized.type ?? '') ||
+      !normalized.content?.some((part) => part.type === 'image')
+    )
+      return [normalized];
+    const blocks: JSONContent[] = [];
+    let inline: JSONContent[] = [];
+    const flush = () => {
+      if (inline.length) blocks.push({ ...normalized, content: inline });
+      inline = [];
+    };
+    for (const part of normalized.content) {
+      if (part.type === 'image') {
+        flush();
+        blocks.push(part);
+      } else inline.push(part);
+    }
+    flush();
+    return blocks;
+  });
   // The Markdown parser emits content-less items for valid, empty numbered entries.
   // ProseMirror requires a paragraph even when there is no text to put in it.
-  const children = node.content?.map(normalizeListItems);
   if (['listItem', 'taskItem'].includes(node.type ?? '') && children?.[0]?.type !== 'paragraph')
     return { ...node, content: [{ type: 'paragraph' }, ...(children ?? [])] };
   return children ? { ...node, content: children } : node;
@@ -103,13 +126,30 @@ function parseSource(source: string): JSONContent {
     } else ordinary.push(line);
   }
   flush();
-  return normalizeListItems({
+  return normalizeBlocks({
     type: 'doc',
     content: blocks.length ? blocks : [{ type: 'paragraph' }],
   });
 }
+export function markdownPresentation(content: Content): { ast: JSONContent; warning?: string } {
+  try {
+    const ast = parseSource(content.markdown);
+    PMNode.fromJSON(schema, ast).check();
+    return { ast };
+  } catch (error) {
+    // This tree is a derived view. Unsupported syntax must never make the
+    // authoritative Markdown unreadable or cause us to rewrite its source.
+    return {
+      ast: {
+        type: 'doc',
+        content: [{ type: 'rawMarkdown', attrs: { source: content.markdown } }],
+      },
+      warning: `Some Markdown could not be formatted (${error instanceof Error ? error.message : String(error)}). The original text is available and can still be edited.`,
+    };
+  }
+}
 export function astFor(content: Content): JSONContent {
-  return parseSource(content.markdown);
+  return markdownPresentation(content).ast;
 }
 export function asNode(content: Content): PMNode {
   return PMNode.fromJSON(schema, astFor(content));
@@ -119,7 +159,11 @@ export function sourceFor(content: Content): string {
 }
 export function plainText(content: Content): string {
   const node = asNode(content);
-  return node.textBetween(0, node.content.size, '\n');
+  return node.textBetween(0, node.content.size, '\n', (leaf) =>
+    leaf.type.name === 'rawMarkdown'
+      ? String(leaf.attrs.source)
+      : (leaf.type.spec.leafText?.(leaf) ?? ''),
+  );
 }
 export class DocumentBuffer {
   constructor(private base: Content) {}

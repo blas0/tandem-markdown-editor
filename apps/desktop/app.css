@@ -108,7 +108,7 @@ body,
 .folder-row {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 4px;
 }
 .folder-tree {
   overflow: visible;
@@ -269,6 +269,7 @@ body,
 .nav-document-row {
   display: flex;
   align-items: center;
+  gap: 4px;
   min-width: 0;
 }
 .tree-document-spacer {
@@ -795,7 +796,6 @@ html[data-workspace-dragging="true"] .navigation [draggable] > .navigation-item 
   margin: auto;
   background: var(--ring);
   opacity: 0;
-  transition: opacity 120ms ease-out;
 }
 .pane-divider[data-orientation="vertical"]::after {
   width: 2px;
@@ -815,4 +815,54 @@ html[data-workspace-dragging="true"] .navigation [draggable] > .navigation-item 
 :root[data-panel-resizing="pane-row"],
 :root[data-panel-resizing="pane-row"] * {
   cursor: row-resize;
+}
+
+/* Linked files show their location without repeating the directory hierarchy. */
+.symlink-row {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  height: 48px;
+  min-height: 48px;
+}
+.symlink-row > .navigation-item {
+  height: 44px;
+  min-height: 44px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+}
+.symlink-row .symlink-name,
+.symlink-row .symlink-path {
+  width: 100%;
+  white-space: nowrap;
+  line-height: 18px;
+}
+.symlink-row .symlink-path {
+  display: flex;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 14px;
+}
+.symlink-path-prefix {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.symlink-path-leaf {
+  flex-shrink: 0;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.symlink-navigation .symlink-row > button:not(.navigation-item) {
+  opacity: 1;
+}
+.symlink-group-separator {
+  display: flex;
+  align-items: center;
+  height: 16px;
+  padding-inline: 8px;
 }

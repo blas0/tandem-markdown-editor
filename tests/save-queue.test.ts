@@ -15,6 +15,20 @@ const memory = () => {
     },
   };
 };
+it('preserves browser recovery evidence when a read-only recovered document is closed', async () => {
+  const storage = memory();
+  storage.setItem('tandem:pending:damaged', 'Retain this recovery evidence');
+  const send = vi.fn();
+  const queue = new SaveQueue('damaged', emptyContent(), 0, send, () => {}, storage, false);
+  await queue.flush();
+  await queue.retry();
+  expect(() => queue.enqueue({ kind: 'source', from: 0, to: 0, insert: 'edit' })).toThrow(
+    'read-only',
+  );
+  await expect(queue.resolveLinkedConflict(emptyContent(), 1)).rejects.toThrow('read-only');
+  expect(queue.recovery()).toBe('Retain this recovery evidence');
+  expect(send).not.toHaveBeenCalled();
+});
 it('can resume writing from the saved document after a corrupt recovery copy has been exported', async () => {
   const storage = memory();
   storage.setItem('tandem:pending:repair', '{broken');

@@ -1,16 +1,18 @@
 import { expect, test } from '@playwright/test';
 
-test('tooltips wait one second, ease in, and stay anchored to the control', async ({ page }) => {
+test('tooltips wait half a second, stay anchored, and open neighbors instantly', async ({
+  page,
+}) => {
   await page.goto('/gallery.html');
   const trigger = page.getByRole('button', { name: 'Zoom in', exact: true });
   const started = await page.evaluate(() => performance.now());
   await trigger.hover({ position: { x: 5, y: 5 } });
   const tooltip = page.locator('[data-slot="tooltip-popup"]');
-  await page.waitForTimeout(850);
+  await page.waitForTimeout(300);
   await expect(tooltip).toHaveCount(0);
   await expect(tooltip).toHaveText('Zoom in', { timeout: 700 });
-  expect((await page.evaluate(() => performance.now())) - started).toBeGreaterThanOrEqual(950);
-  await expect(tooltip).toHaveCSS('transition-duration', '0.5s');
+  expect((await page.evaluate(() => performance.now())) - started).toBeGreaterThanOrEqual(450);
+  await expect(tooltip).toHaveCSS('transition-duration', '0s');
   const content = tooltip;
   const first = await content.boundingBox();
   const control = await trigger.boundingBox();
@@ -18,6 +20,9 @@ test('tooltips wait one second, ease in, and stay anchored to the control', asyn
   expect(Math.abs(first.x + first.width / 2 - control.x - control.width / 2)).toBeLessThan(2);
   await trigger.hover({ position: { x: 20, y: 20 } });
   expect((await content.boundingBox())?.x).toBeCloseTo(first.x, 0);
+  await page.getByRole('button', { name: 'Zoom out', exact: true }).hover();
+  await expect(tooltip).toHaveText('Zoom out', { timeout: 350 });
+  await expect(tooltip).toHaveCSS('transition-duration', '0s');
   await page.keyboard.press('Escape');
   await expect(tooltip).toHaveCount(0);
 });

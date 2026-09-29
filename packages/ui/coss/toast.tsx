@@ -51,18 +51,25 @@ function upsertReplayClassName(toast: { type?: string; updateKey?: number }): st
 function Toasts({
   position,
   portalProps,
+  container,
 }: {
   position: ToastPosition;
   portalProps?: React.ComponentProps<typeof Toast.Portal>;
+  container?: HTMLElement | null;
 }): React.ReactElement {
   const { toasts } = Toast.useToastManager();
   const swipeDirection = getSwipeDirection(position);
 
   return (
-    <Toast.Portal data-slot="toast-portal" {...portalProps}>
+    <Toast.Portal
+      data-slot="toast-portal"
+      {...portalProps}
+      container={container ?? portalProps?.container}
+    >
       <Toast.Viewport
         className={cn(
-          'fixed z-60 mx-auto flex w-[calc(100%-var(--toast-inset)*2)] max-w-90 [--toast-inset:--spacing(4)] sm:[--toast-inset:--spacing(8)]',
+          'z-60 mx-auto flex w-[calc(100%-var(--toast-inset)*2)] max-w-90 [--toast-inset:--spacing(4)] sm:[--toast-inset:--spacing(8)]',
+          container ? 'absolute' : 'fixed',
           // Vertical positioning
           'data-[position*=top]:top-(--toast-inset)',
           'data-[position*=bottom]:bottom-(--toast-inset)',
@@ -130,7 +137,7 @@ function Toasts({
               toast={toast}
             >
               <Toast.Content className="pointer-events-auto flex items-center justify-between gap-1.5 overflow-hidden px-3.5 py-3 text-sm transition-opacity duration-250 data-behind:not-data-expanded:pointer-events-none data-behind:opacity-0 data-expanded:opacity-100">
-                <div className="flex gap-2">
+                <div className="flex min-w-0 gap-2">
                   {Icon && (
                     <div
                       className="[&>svg]:h-lh [&>svg]:w-4 [&_svg]:pointer-events-none [&_svg]:shrink-0"
@@ -140,10 +147,10 @@ function Toasts({
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex min-w-0 flex-col gap-0.5">
                     <Toast.Title className="font-medium" data-slot="toast-title" />
                     <Toast.Description
-                      className="text-muted-foreground"
+                      className="text-muted-foreground [overflow-wrap:anywhere]"
                       data-slot="toast-description"
                     />
                   </div>
@@ -261,18 +268,22 @@ export type ToastPosition =
 export interface ToastProviderProps extends Toast.Provider.Props {
   position?: ToastPosition;
   portalProps?: React.ComponentProps<typeof Toast.Portal>;
+  viewportContainer?: HTMLElement | null;
 }
 
 export function ToastProvider({
   children,
   position = 'bottom-right',
   portalProps,
+  viewportContainer,
   ...props
 }: ToastProviderProps): React.ReactElement {
   return (
     <Toast.Provider toastManager={toastManager} {...props}>
       {children}
-      <Toasts portalProps={portalProps} position={position} />
+      {viewportContainer !== null && (
+        <Toasts portalProps={portalProps} position={position} container={viewportContainer} />
+      )}
     </Toast.Provider>
   );
 }

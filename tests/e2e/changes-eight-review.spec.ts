@@ -122,8 +122,8 @@ test('a completed review with no units reports that no changes were suggested', 
     const notice = page.getByText('No changes were suggested for this review.');
     await expect(notice).toBeVisible();
     await expect(notice).toHaveAttribute('data-slot', 'toast-title');
-    await expect(page.locator('.writing-area').getByText('No changes were suggested')).toHaveCount(
-      0,
+    await expect(page.locator('.writing-area [data-slot="toast-title"]')).toHaveText(
+      'No changes were suggested for this review.',
     );
   } finally {
     await app.close();

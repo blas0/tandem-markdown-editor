@@ -6,7 +6,7 @@ import { Schema as S } from 'effect';
  * commit, push or pull request, and must match package.json, tauri.conf.json
  * and src-tauri/Cargo.toml.
  */
-export const appVersion = '0.1.4';
+export const appVersion = '0.1.5';
 export type ProviderKind = 'codex' | 'claude';
 export type Model = {
   fastTier?: string;
@@ -116,7 +116,11 @@ export type DocumentMeta = {
   modifiedAt: string;
   trashedAt: string | null;
 };
-export type Document = DocumentMeta & { content: Content };
+export type Document = DocumentMeta & {
+  content: Content;
+  recoveryWarning?: string;
+  recoveryReadOnly?: boolean;
+};
 export type Folder = {
   color?: string;
   linkedPath?: string | null;

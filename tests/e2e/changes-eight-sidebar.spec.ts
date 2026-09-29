@@ -105,33 +105,27 @@ test('Shift F10 on a folder opens its actions instead of document creation', asy
   }
 });
 
-test('a descendant of a linked root exposes name and color but not archive actions', async ({
+test('documents below a linked root appear with their resolved path and document actions', async ({
   page,
 }) => {
   const app = await harness(page);
   app.store.savePreferences({ onboarding: true });
-  app.store.saveFolder({
-    id: 'linked-root',
-    name: 'Linked root',
-    linkedPath: '/fixture/linked',
-  });
+  app.store.saveFolder({ id: 'linked-root', name: 'Linked root', linkedPath: '/fixture/linked' });
   app.store.saveFolder({ id: 'linked-child', name: 'Linked child', parentId: 'linked-root' });
+  app.store.create({ title: 'Descendant.md', folderId: 'linked-child', format: 'md' });
   try {
     await page.goto('/');
-    const child = page.getByRole('treeitem', { name: 'Linked child', exact: true });
-    await child.focus();
-    await child.press('F2');
+    const list = page.getByRole('list', { name: 'Symlink items', exact: true });
+    await expect(list.getByRole('listitem')).toHaveCount(1);
+    await expect(list.getByText('/fixture/linked/Linked child/', { exact: true })).toBeVisible();
+    await expect(page.getByRole('treeitem', { name: 'Linked child', exact: true })).toHaveCount(0);
+    const document = list.getByRole('button', { name: 'Descendant.md', exact: true });
+    await document.focus();
+    await document.press('Shift+F10');
     const menu = page.getByRole('menu');
-    await expect(menu.getByRole('group', { name: 'Name', exact: true })).toBeVisible();
-    await expect(menu.getByRole('textbox', { name: 'Folder name', exact: true })).toBeVisible();
-    await expect(page.getByRole('dialog', { name: 'Folder settings', exact: true })).toHaveCount(0);
-    await expect(menu.getByRole('group', { name: 'Color', exact: true })).toBeVisible();
-    await expect(menu.getByRole('button', { name: 'Use blue', exact: true })).toBeVisible();
-    await expect(page.getByRole('menuitem', { name: 'Move folder', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('menuitem', { name: 'Move to archive', exact: true })).toHaveCount(
-      0,
-    );
-    await expect(menu.getByRole('separator')).toHaveCount(1);
+    await expect(menu.getByRole('textbox', { name: 'Document name', exact: true })).toBeVisible();
+    await expect(menu.getByRole('textbox', { name: 'Folder name', exact: true })).toHaveCount(0);
+    await expect(menu.getByRole('menuitem', { name: 'Export', exact: true })).toBeVisible();
   } finally {
     await app.close();
   }

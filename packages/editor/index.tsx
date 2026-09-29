@@ -14,7 +14,13 @@ import {
 } from '@codemirror/lang-markdown';
 import { indentUnit, syntaxTree } from '@codemirror/language';
 import { highlightSelectionMatches } from '@codemirror/search';
-import { ChangeSet, EditorState, Prec, EditorSelection as SourceRange } from '@codemirror/state';
+import {
+  ChangeSet,
+  Compartment,
+  EditorState,
+  Prec,
+  EditorSelection as SourceRange,
+} from '@codemirror/state';
 import { drawSelection, EditorView, keymap } from '@codemirror/view';
 import {
   forwardRef,
@@ -33,7 +39,12 @@ import { Input } from '../ui/coss/input';
 import { X } from '../ui/icons';
 import { CheckboxField, IconButton, SaveButton, TextField, TitledDialog } from '../ui/primitives';
 import './editor.css';
-import { editorLock, internalEditorChange, setEditorReadOnly } from './editor-lock';
+import {
+  documentReadOnly,
+  editorLock,
+  internalEditorChange,
+  setEditorReadOnly,
+} from './editor-lock';
 import { findText } from './find';
 import { sourceFindHighlight, sourceFindMatch } from './find-highlight';
 import {
@@ -43,7 +54,7 @@ import {
   inlineReviewDecorations,
   setInlineReviews,
 } from './inline-review';
-import { liveMarkdown } from './live-markdown';
+import { liveMarkdown, rawMarkdown } from './live-markdown';
 import {
   activeSourceMarks,
   formatSource,
@@ -52,7 +63,6 @@ import {
   type SourceAction,
 } from './markdown-actions';
 import { selectedMarkdownInput } from './markdown-input';
-import { MarkdownPreview } from './markdown-preview';
 import { MarkdownToolbar } from './markdown-toolbar';
 
 // Leave ordinary Tab navigation intact outside list lines, including bare/empty list items.
@@ -97,6 +107,8 @@ type Props = {
   onSelectionChange?: (selection: EditorSelection | null) => void;
   /** Only the focused split pane opens Find from the keyboard. */
   active?: boolean;
+  /** Protects recovered document source independently of temporary review locks. */
+  readOnly?: boolean;
   /**
    * Where the formatting toolbar renders: in place when undefined, into a shared
    * split-view strip when an element, and nowhere when null.
@@ -115,6 +127,7 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
       onOpenLink,
       onSelectionChange,
       active = true,
+      readOnly = false,
       toolbarHost,
     },
     ref,
@@ -189,16 +202,18 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
       width: string;
     } | null>(null);
     const [codeLanguage, setCodeLanguage] = useState<string | null>(null);
-    // The rendered preview reads the editor's own document, so unsaved typing shows too.
-    const [preview, setPreview] = useState(false),
-      [previewSource, setPreviewSource] = useState('');
-    const previewOn = useRef(false);
-    const togglePreview = () => {
-      const next = !preview;
-      previewOn.current = next;
-      if (next) setPreviewSource(source.current?.state.doc.toString() ?? sourceFor(content));
-      setPreview(next);
-      if (!next) requestAnimationFrame(() => source.current?.focus());
+    // Reconfigure presentation only, retaining source, selection and undo history.
+    const markdownPresentation = useRef(new Compartment());
+    const documentLock = useRef(new Compartment());
+    const [rawMode, setRawMode] = useState(false);
+    const toggleRawMode = () => {
+      const next = !rawMode;
+      source.current?.dispatch({
+        effects: markdownPresentation.current.reconfigure(next ? rawMarkdown : liveMarkdown),
+        annotations: isolateHistory.of('full'),
+      });
+      setRawMode(next);
+      source.current?.focus();
     };
     const [findOpen, setFindOpen] = useState(false),
       [findQuery, setFindQuery] = useState(''),
@@ -235,6 +250,7 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
           extensions: [
             history(),
             editorLock,
+            documentLock.current.of(documentReadOnly.of(readOnly)),
             selectedMarkdownInput,
             EditorState.allowMultipleSelections.of(true),
             indentUnit.of('  '),
@@ -273,7 +289,7 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
               ...historyKeymap,
             ]),
             markdownLanguage({ base: gfmLanguage }),
-            liveMarkdown,
+            markdownPresentation.current.of(liveMarkdown),
             drawSelection(),
             highlightSelectionMatches(),
             sourceFindHighlight,
@@ -285,10 +301,6 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
             }),
             EditorView.updateListener.of((update) => {
               if (update.selectionSet || update.docChanged) updateToolbarMarks(update.state);
-              if (update.docChanged && previewOn.current) {
-                const text = update.state.doc.toString();
-                startTransition(() => setPreviewSource(text));
-              }
               if (
                 update.selectionSet ||
                 update.docChanged ||
@@ -357,6 +369,11 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
         source.current = null;
       };
     }, []);
+    useEffect(() => {
+      source.current?.dispatch({
+        effects: documentLock.current.reconfigure(documentReadOnly.of(readOnly)),
+      });
+    }, [readOnly]);
     useEffect(() => {
       source.current?.dispatch({
         effects: setInlineReviews.of({
@@ -442,7 +459,7 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
     );
     const format = (action: SourceAction) => {
       const view = source.current;
-      if (!view) return;
+      if (!view || view.state.readOnly) return;
       const { from, to } = view.state.selection.main;
       const change = formatSource(
         { text: view.state.doc.toString(), from, to, tree: syntaxTree(view.state) },
@@ -457,8 +474,9 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
       view.focus();
     };
     const insertImage = async () => {
+      if (source.current?.state.readOnly) return;
       const image = await onImage();
-      if (image) setImageProperties({ ...image, width: '' });
+      if (image && !source.current?.state.readOnly) setImageProperties({ ...image, width: '' });
     };
     const matches = findOpen
       ? findText(source.current?.state.doc.toString() ?? '', findQuery, matchCase)
@@ -507,6 +525,7 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
     }, [active, findOpen, findQuery, findIndex, matchCase]);
     const toolbar = (
       <MarkdownToolbar
+        readOnly={readOnly}
         format={format}
         activeMarks={toolbarMarks}
         link={() => setLink('')}
@@ -524,8 +543,8 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
           }
         }}
         code={() => setCodeLanguage('')}
-        preview={preview}
-        onTogglePreview={togglePreview}
+        rawMode={rawMode}
+        onToggleRawMode={toggleRawMode}
       />
     );
     return (
@@ -585,16 +604,9 @@ export const DocumentEditor = forwardRef<EditorHandle, Props>(
           </search>
         )}
         {toolbarHost === undefined ? toolbar : toolbarHost && createPortal(toolbar, toolbarHost)}
-        <div ref={scrollHost} className="document-scroll source-scroll" hidden={preview}>
+        <div ref={scrollHost} className="document-scroll source-scroll">
           <div className="source-editor" style={{ zoom }} ref={sourceHost} />
         </div>
-        {preview && (
-          <div className="document-scroll preview-scroll">
-            <div style={{ zoom }}>
-              <MarkdownPreview markdown={previewSource} onOpenLink={onOpenLink} />
-            </div>
-          </div>
-        )}
         <TitledDialog
           open={link !== null}
           onOpenChange={(v) => {
