@@ -184,3 +184,22 @@ export async function backupLibrary() {
 export async function openLibraryDirectory() {
   return invoke<string>('open_library_directory');
 }
+export type AvailableUpdate = { version: string; currentVersion: string };
+/** Asks the release feed for a newer Tandem; null when this one is current. */
+export async function checkForUpdate() {
+  return native() ? invoke<AvailableUpdate | null>('update_check') : null;
+}
+/** Downloads and installs the update found by the last check, reporting whole percents. */
+export async function installUpdate(onProgress: (percent: number | null) => void) {
+  const stop = await listen<{ percent: number | null }>('tandem-update-progress', (event) =>
+    onProgress(event.payload.percent),
+  );
+  try {
+    await invoke('update_install');
+  } finally {
+    stop();
+  }
+}
+export async function restartForUpdate() {
+  return invoke('update_restart');
+}

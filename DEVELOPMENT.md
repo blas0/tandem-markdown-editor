@@ -50,6 +50,19 @@ bun run build:desktop
 
 The bundle is written to `src-tauri/target/release/bundle/macos/Tandem.app`. The build downloads a SHA-256-pinned Node 26.3.1 runtime from nodejs.org and bundles the helper service with the app. The result is unsigned and not notarized.
 
+## Releases
+
+Installed apps update themselves from the latest GitHub Release. Publish one after a branch that raised the version has merged:
+
+```sh
+git checkout main && git merge --ff-only origin/main
+bun run release
+```
+
+`bun run release` refuses to run unless the tree is clean, `HEAD` is `origin/main` and the version has no release yet. It builds the app, signs the update archive, writes the `latest.json` feed and uploads both to a new `v<version>` release. `bun run release --dry-run` does everything except the upload.
+
+The archive is signed with the updater key at `~/.tauri/tandem-updater.key`; set `TANDEM_UPDATER_KEY` to use another path and `TANDEM_UPDATER_KEY_PASSWORD` if the key has a password. Its public half is `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`. Keep the private key out of the repository and back it up: an app only accepts updates signed by the key it shipped with, so a lost key means every installed copy has to be replaced by hand. Ordinary builds and `bun run validate` do not need the key.
+
 ## Install
 
 Copy `Tandem.app` to `/Applications` or `~/Applications`.
