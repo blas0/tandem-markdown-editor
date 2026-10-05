@@ -19,7 +19,7 @@ test('sidebar hierarchy uses small controls and reserves tooltips for actions', 
   try {
     await page.goto('/');
     const nav = page.getByRole('complementary', { name: 'Navigation', exact: true });
-    for (const name of ['Library', 'Cadences']) {
+    for (const name of ['Library']) {
       const heading = nav.getByRole('button', { name, exact: true });
       await expect(heading).toHaveCSS('font-size', '14px');
       await expect(heading).toHaveCSS('height', '28px');
@@ -41,11 +41,7 @@ test('sidebar hierarchy uses small controls and reserves tooltips for actions', 
       await page.waitForTimeout(1600);
       await expect(page.locator('[data-slot=tooltip-popup]')).toHaveCount(0);
     }
-    const cadence = nav
-      .getByRole('region', { name: 'Cadences', exact: true })
-      .locator('.navigation-item')
-      .first();
-    await expect(cadence).toHaveCSS('font-weight', '400');
+    await expect(nav.getByRole('region', { name: 'Cadences', exact: true })).toHaveCount(0);
     await nav.getByRole('button', { name: 'Actions for Loose note.md', exact: true }).hover();
     await expect(page.locator('[data-slot=tooltip-popup]')).toHaveText('Actions for Loose note.md');
     await nav.getByRole('button', { name: 'Actions for Loose note.md', exact: true }).click();

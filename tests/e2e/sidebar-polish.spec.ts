@@ -49,7 +49,7 @@ test('sidebar controls disappear after pointer clicks leave a row', async ({ pag
     await page.mouse.click(900, 700);
     await expect(linkedAction).toHaveAttribute('aria-expanded', 'false');
     await expect(linkedAction).toHaveCSS('opacity', '1');
-    for (const sectionName of ['Library', 'Cadences']) {
+    for (const sectionName of ['Library']) {
       const section = page.getByRole('region', { name: sectionName, exact: true });
       const row = section.locator('.nav-document-row').first();
       const action = row.getByRole('button', { name: /^Actions for / });
@@ -78,7 +78,7 @@ test('sidebar creation controls fit and footer actions share a padded row', asyn
     await page.goto('/');
     const nav = page.getByRole('complementary', { name: 'Navigation', exact: true });
     const navBox = await bounds(nav);
-    for (const name of ['Library', 'Cadences']) {
+    for (const name of ['Library']) {
       const heading = nav.getByRole('button', { name, exact: true });
       await heading.hover();
       await expect(heading).toHaveCSS('text-decoration-line', 'underline');
@@ -99,17 +99,13 @@ test('sidebar creation controls fit and footer actions share a padded row', asyn
     const settingsBox = await bounds(settings);
     const archiveBox = await bounds(archive);
     expect(settingsBox.y).toBe(archiveBox.y);
-    const separators = nav.locator(':scope > [data-slot="separator"]');
     await expect(nav.getByRole('img', { name: 'Tandem', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'New cadence', exact: true })).toHaveCount(0);
-    const bottom = await bounds(separators.last());
-    expect(settingsBox.y - bottom.y - bottom.height).toBeGreaterThanOrEqual(8);
-    // Rules only divide Folders and the footer; nothing sits within a spacing
-    // step of a rule and no two rules meet.
-    const rules = nav.locator('[data-slot="separator"][data-orientation="horizontal"]');
-    await expect(rules).toHaveCount(2);
-    const libraryBox = await bounds(nav.getByRole('button', { name: 'Library', exact: true }));
-    expect((await bounds(rules.first())).y).toBeGreaterThan(libraryBox.y + libraryBox.height);
+    // No rule sits above the footer: the list ends in its scroll fade, a spacing step away.
+    const list = await bounds(nav.locator('.nav-scroll'));
+    expect(settingsBox.y - list.y - list.height).toBeGreaterThanOrEqual(8);
+    await expect(nav.locator('.nav-scroll')).not.toHaveCSS('mask-image', 'none');
+    await expect(nav.locator('[data-slot="separator"]')).toHaveCount(0);
     const clearance = await nav.evaluate((element) => {
       const gaps: number[] = [];
       const rules = [...element.querySelectorAll('[data-slot="separator"]')];

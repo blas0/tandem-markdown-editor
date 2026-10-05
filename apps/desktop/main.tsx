@@ -23,7 +23,7 @@ import { DocumentEditor, type EditorHandle, type EditorSelection } from '../../p
 import { selectionUnitIds } from '../../packages/editor/annotations';
 import type { LinkStatus } from '../../packages/files/linked-files';
 import { Archive } from '../../packages/ui/archive';
-import { CadenceNavigation } from '../../packages/ui/cadence-navigation';
+import { CadenceList } from '../../packages/ui/cadence-list';
 import { CanvasToolbar } from '../../packages/ui/canvas-toolbar';
 import {
   choiceFor,
@@ -43,7 +43,6 @@ import {
 import { Button } from '../../packages/ui/coss/button';
 import { DialogTitle } from '../../packages/ui/coss/dialog';
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from '../../packages/ui/coss/menu';
-import { Separator } from '../../packages/ui/coss/separator';
 import { Switch } from '../../packages/ui/coss/switch';
 import { ToastPrimitive, ToastProvider, toastManager } from '../../packages/ui/coss/toast';
 import { TooltipProvider } from '../../packages/ui/coss/tooltip';
@@ -805,11 +804,6 @@ function App() {
         ];
   const createActions = (folderId: string | null = null): ActionMenuItem[] => [
     { label: 'New .md document', onSelect: () => run(() => create('md', folderId)) },
-    {
-      label: 'New cadence (.md)',
-      icon: <Bookmark size={16} />,
-      onSelect: () => run(createCadence),
-    },
     { label: 'New symlink', onSelect: () => run(() => importDocument(undefined, undefined, true)) },
     { label: 'Import folder', onSelect: () => run(importFolder) },
   ];
@@ -1048,14 +1042,6 @@ function App() {
                       onEdit={setFolderEdit}
                       createActions={createActions}
                       folderActions={folderActions}
-                      cadenceSection={
-                        <CadenceNavigation
-                          cadences={prefs.cadences}
-                          activeId={document?.cadenceId}
-                          onOpen={(cadence) => run(() => openCadence(cadence))}
-                          actions={cadenceActions}
-                        />
-                      }
                       onDocument={(d) => run(() => navigate(d))}
                       documentActions={docActions}
                       onTrash={(f) => run(() => trashFolder(f))}
@@ -1068,7 +1054,6 @@ function App() {
                       }}
                     />
                   </div>
-                  <Separator />
                   <div className="navigation-footer">
                     {!dragItem && (
                       <IconButton
@@ -1327,6 +1312,17 @@ function App() {
           providers={providers}
           save={(p) => run(() => savePrefs(p))}
           run={run}
+          activeCadenceId={document?.cadenceId}
+          cadenceActions={cadenceActions}
+          // A cadence opens in the editor, so Settings steps out of its way.
+          onOpenCadence={(cadence) => {
+            setSettings(false);
+            run(() => openCadence(cadence));
+          }}
+          onCreateCadence={() => {
+            setSettings(false);
+            run(createCadence);
+          }}
         />
       </TitledDialog>
       {folderEdit && (
@@ -1637,18 +1633,28 @@ function Onboarding({
     </div>
   );
 }
+const settingsViews = ['general', 'cadences', 'safety'] as const;
+type SettingsView = (typeof settingsViews)[number];
 function SettingsContent({
   prefs,
   providers,
   save,
   run,
+  activeCadenceId,
+  cadenceActions,
+  onOpenCadence,
+  onCreateCadence,
 }: {
   prefs: Preferences;
   providers: ProviderStatus[];
   save: (p: Partial<Preferences>) => void;
   run: Run;
+  activeCadenceId?: string | null;
+  cadenceActions: (cadence: Cadence) => ActionMenuItem[];
+  onOpenCadence: (cadence: Cadence) => void;
+  onCreateCadence: () => void;
 }) {
-  const [view, setView] = useState<'general' | 'safety'>('general');
+  const [view, setView] = useState<SettingsView>('general');
   const [backup, setBackup] = useState('');
   const [backingUp, setBackingUp] = useState(false);
   const [defaultExport, setDefaultExport] = useState('');
@@ -1668,8 +1674,13 @@ function SettingsContent({
           aria-label="Settings views"
           aria-orientation="vertical"
         >
-          {(['general', 'safety'] as const).map((name) => {
-            const Icon = name === 'general' ? Sliders2Horizontal : ShieldCheck;
+          {settingsViews.map((name, index) => {
+            const Icon =
+              name === 'general'
+                ? Sliders2Horizontal
+                : name === 'cadences'
+                  ? Bookmark
+                  : ShieldCheck;
             return (
               <Button
                 key={name}
@@ -1686,20 +1697,21 @@ function SettingsContent({
                 onKeyDown={(event) => {
                   if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
                   event.preventDefault();
+                  const count = settingsViews.length;
                   const next =
-                    event.key === 'Home'
-                      ? 'general'
-                      : event.key === 'End'
-                        ? 'safety'
-                        : name === 'general'
-                          ? 'safety'
-                          : 'general';
+                    settingsViews[
+                      event.key === 'Home'
+                        ? 0
+                        : event.key === 'End'
+                          ? count - 1
+                          : (index + (event.key === 'ArrowUp' ? count - 1 : 1)) % count
+                    ];
                   setView(next);
                   document.getElementById(`settings-tab-${next}`)?.focus();
                 }}
               >
                 <Icon size={18} variant={view === name ? 'fill' : 'stroke'} />
-                {name === 'general' ? 'General' : 'Safety'}
+                {name === 'general' ? 'General' : name === 'cadences' ? 'Cadences' : 'Safety'}
               </Button>
             );
           })}
@@ -1805,6 +1817,23 @@ function SettingsContent({
                   )}
                 </div>
               </SettingsRow>
+            </SettingsSection>
+          ) : view === 'cadences' ? (
+            <SettingsSection>
+              <SettingsRow
+                label="Cadences"
+                description="Review instructions, each an editable Markdown document"
+              >
+                <Button size="sm" variant="outline" onClick={onCreateCadence}>
+                  New cadence
+                </Button>
+              </SettingsRow>
+              <CadenceList
+                cadences={prefs.cadences}
+                activeId={activeCadenceId}
+                onOpen={onOpenCadence}
+                actions={cadenceActions}
+              />
             </SettingsSection>
           ) : (
             <SettingsSection>

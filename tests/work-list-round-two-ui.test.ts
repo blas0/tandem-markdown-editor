@@ -61,11 +61,11 @@ it('lists linked files with their parent paths between Library and Cadences', ()
       onSelect() {},
       onEdit() {},
       onDrop() {},
-      cadenceSection: createElement('section', null, 'Cadences'),
     }),
   );
   expect(html.indexOf('Library')).toBeLessThan(html.indexOf('Symlinks'));
-  expect(html.indexOf('Symlinks')).toBeLessThan(html.indexOf('Cadences'));
+  // Cadences are listed in Settings, never in the sidebar tree.
+  expect(html).not.toContain('Cadences');
   expect(html).toContain('aria-label="Symlink items"');
   expect(html).toContain('/tmp/notes/Drafts/');
   expect(html).toContain('Linked.md');

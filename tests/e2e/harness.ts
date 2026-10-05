@@ -1,7 +1,7 @@
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { Application } from '../../apps/helper/service';
 import type { ProviderStatus } from '../../packages/contracts';
 
@@ -104,4 +104,16 @@ export async function harness(
     void page.evaluate((e) => (window as any).__emit('tandem-event', e), e).catch(() => {});
   };
   return app;
+}
+
+/** Opens Settings on its Cadences view, the only place cadence documents are listed. */
+export async function cadenceSettings(page: Page) {
+  const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+  // Opening a cadence closes Settings, so a dialog still animating out is reopened.
+  await expect(async () => {
+    if (!(await dialog.isVisible()))
+      await page.getByRole('button', { name: 'Settings', exact: true }).click({ timeout: 2000 });
+    await dialog.getByRole('tab', { name: 'Cadences', exact: true }).click({ timeout: 2000 });
+  }).toPass();
+  return dialog.getByRole('region', { name: 'Cadences', exact: true });
 }

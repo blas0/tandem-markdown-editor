@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { harness } from './harness';
+import { cadenceSettings, harness } from './harness';
 
 test('moving the open document to Cadences keeps its editor and selects the cadence', async ({
   page,
@@ -20,11 +20,18 @@ test('moving the open document to Cadences keeps its editor and selects the cade
       (element as HTMLElement & { original?: boolean }).original = true;
     });
     await page.getByRole('button', { name: 'Move to Cadences', exact: true }).click();
-    const cadences = page.getByRole('region', { name: 'Cadences', exact: true });
+    // The moved document leaves the sidebar; Settings lists it as the open cadence.
+    await expect(
+      page
+        .getByRole('complementary', { name: 'Navigation', exact: true })
+        .getByRole('button', { name: 'Plan.md', exact: true }),
+    ).toHaveCount(0);
+    const cadences = await cadenceSettings(page);
     await expect(cadences.getByRole('button', { name: 'Plan.md', exact: true })).toHaveAttribute(
       'aria-current',
       'page',
     );
+    await page.keyboard.press('Escape');
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Cadences');
     await expect(source).toHaveText('Keep this text');
     // The same editor element stays mounted rather than being rebuilt.
@@ -62,11 +69,12 @@ test('copying an open linked document to Cadences opens and selects its cadence 
     const source = page.getByRole('textbox', { name: 'Markdown source', exact: true });
     await expect(source).toHaveText('Linked instructions');
     await page.getByRole('button', { name: 'Copy to Cadences', exact: true }).click();
-    const cadences = page.getByRole('region', { name: 'Cadences', exact: true });
+    const cadences = await cadenceSettings(page);
     await expect(cadences.getByRole('button', { name: 'SKILL.md', exact: true })).toHaveAttribute(
       'aria-current',
       'page',
     );
+    await page.keyboard.press('Escape');
     await expect(source).toHaveText('Linked instructions');
     await expect(page.getByRole('button', { name: 'Copy to Cadences', exact: true })).toHaveCount(
       0,

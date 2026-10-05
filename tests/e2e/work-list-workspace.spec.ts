@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { harness } from './harness';
+import { cadenceSettings, harness } from './harness';
 
 test('document name edits in the sidebar actions menu save as you type', async ({ page }) => {
   const app = await harness(page);
@@ -99,8 +99,9 @@ test('cadence actions omit Edit instructions', async ({ page }) => {
   app.store.savePreferences({ onboarding: true });
   try {
     await page.goto('/');
-    await page.getByRole('button', { name: 'New document', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'New cadence (.md)', exact: true }).click();
+    await cadenceSettings(page);
+    await page.getByRole('button', { name: 'New cadence', exact: true }).click();
+    await cadenceSettings(page);
     const cadenceActions = page.getByRole('button', { name: /^Actions for cadence Untitled/ });
     await cadenceActions.locator('..').hover();
     await cadenceActions.click();

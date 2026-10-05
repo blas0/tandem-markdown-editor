@@ -271,7 +271,7 @@ test('Changes 3: sidebar shows nested folders and new documents stay independent
   }
 });
 
-test('Changes 3: compact General settings stay bounded and keep cadences in navigation', async ({
+test('Changes 3: compact General settings stay bounded and list cadences in their own view', async ({
   page,
 }) => {
   const app = await harness(page);
@@ -282,8 +282,8 @@ test('Changes 3: compact General settings stay bounded and keep cadences in navi
     await expect(page.getByRole('searchbox', { name: 'Search settings' })).toHaveCount(0);
     await expect(page.getByRole('switch', { name: 'Animate document covers' })).toHaveCount(0);
     await expect(
-      page.getByRole('dialog').getByRole('button', { name: 'Cadences', exact: true }),
-    ).toHaveCount(0);
+      page.getByRole('dialog').getByRole('tab', { name: 'Cadences', exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Claude executable path' })).toHaveCount(0);
     await page.setViewportSize({ width: 900, height: 600 });
 

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { harness } from './harness';
+import { cadenceSettings, harness } from './harness';
 
 test('Duplicate keeps the current document in the editor', async ({ page }) => {
   const app = await harness(page);
@@ -49,10 +49,11 @@ test('Copy to Cadences preserves the linked source and continues in the cadence 
     if (!linked) throw new Error('Expected linked source');
     await page.getByRole('button', { name: 'Copy to Cadences', exact: true }).click();
     // The cadence copy takes the editor's place, selected as if it had been opened.
-    const cadences = page.getByRole('region', { name: 'Cadences', exact: true });
+    const cadences = await cadenceSettings(page);
     await expect(
       cadences.getByRole('button', { name: 'House style.md', exact: true }),
     ).toHaveAttribute('aria-current', 'page');
+    await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Copy to Cadences', exact: true })).toHaveCount(
       0,
     );

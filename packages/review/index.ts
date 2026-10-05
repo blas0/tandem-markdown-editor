@@ -63,6 +63,16 @@ export function withheldNotice(reasons: string[]): string | undefined {
   const count = reasons.length === 1 ? '1 suggestion was' : `${reasons.length} suggestions were`;
   return `${count} withheld because the model ${unique.join(' and ')}.`;
 }
+const REASON_LIMIT = 240;
+/** Trims a model's reason to the display limit at a word boundary. */
+function clampReason(reason: unknown): string {
+  if (typeof reason !== 'string') return '';
+  const text = reason.trim();
+  if (text.length <= REASON_LIMIT) return text;
+  const cut = text.slice(0, REASON_LIMIT - 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > REASON_LIMIT / 2 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
 /**
  * Checks one provider batch. Batch-level contract breaches throw; a bad replacement for one
  * unit only withholds that unit so the rest of the batch still reaches the user.
@@ -83,12 +93,7 @@ export function validateResult(raw: unknown, batchId: string, units: Unit[]): Re
       throw new Error('Provider returned invalid or duplicate sentence IDs');
     seen.add(r.id);
     if (r.outcome === 'replace') {
-      if (
-        typeof r.text !== 'string' ||
-        typeof r.reason !== 'string' ||
-        r.reason.length > 240 ||
-        r.text.length > Math.max(1024, unit.text.length * 4)
-      )
+      if (typeof r.text !== 'string' || r.text.length > Math.max(1024, unit.text.length * 4))
         return withhold(r.id, WITHHELD_INVALID);
       let cursor = 0;
       for (const token of unit.protected) {
@@ -98,6 +103,8 @@ export function validateResult(raw: unknown, batchId: string, units: Unit[]): Re
       }
       if ((r.text.match(/[\r\n]/g)?.length ?? 0) > (unit.text.match(/[\r\n]/g)?.length ?? 0))
         return withhold(r.id, WITHHELD_LINE_BREAKS);
+      // The reason is only a caption, so a long or missing one never costs the replacement.
+      return { ...r, reason: clampReason(r.reason) };
     }
     return r;
   });

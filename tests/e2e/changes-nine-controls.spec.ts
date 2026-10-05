@@ -175,6 +175,13 @@ for (const width of [1280, 600]) {
           await expect(dialog.getByRole('switch')).toHaveCount(0);
           await general.focus();
           await general.press('ArrowDown');
+          // Cadences sits between the two; arrows step through every view in order.
+          const cadences = dialog.getByRole('tab', { name: 'Cadences', exact: true });
+          await expect(cadences).toBeFocused();
+          await expect(
+            dialog.getByRole('button', { name: 'New cadence', exact: true }),
+          ).toBeVisible();
+          await cadences.press('ArrowDown');
           await expect(safety).toBeFocused();
         }
       }

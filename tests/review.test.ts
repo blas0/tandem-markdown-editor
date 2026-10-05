@@ -388,9 +388,17 @@ describe('review service', () => {
     expect(validateResult(replace('x'.repeat(1025)), 'b', [unit])[0].withheld).toBe(
       WITHHELD_INVALID,
     );
+    // A long or missing reason is trimmed; the replacement itself is still offered.
+    const wordy = validateResult(replace('A clear sentence.', 'word '.repeat(80)), 'b', [unit])[0];
+    expect(wordy).toMatchObject({ outcome: 'replace', text: 'A clear sentence.' });
+    expect(wordy.withheld).toBeUndefined();
+    expect(wordy.reason.length).toBeLessThanOrEqual(240);
+    expect(wordy.reason.endsWith('word…')).toBe(true);
     expect(
-      validateResult(replace('A clear sentence.', 'r'.repeat(241)), 'b', [unit])[0].withheld,
-    ).toBe(WITHHELD_INVALID);
+      validateResult(replace('A clear sentence.', 'r'.repeat(241)), 'b', [unit])[0].reason,
+    ).toBe(`${'r'.repeat(239)}…`);
+    const silent = validateResult(replace('A clear sentence.', null as never), 'b', [unit])[0];
+    expect(silent).toMatchObject({ outcome: 'replace', reason: '' });
     expect(validateResult(replace('A clear sentence.'), 'b', [unit])[0].withheld).toBeUndefined();
     expect(() => validateResult(null, 'b', [unit])).toThrow('invalid review');
     expect(() => validateResult({ ...replace('x'), batchId: 'other' }, 'b', [unit])).toThrow(

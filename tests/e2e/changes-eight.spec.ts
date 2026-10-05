@@ -2,9 +2,9 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { harness } from './harness';
+import { cadenceSettings, harness } from './harness';
 
-test('Changes 8: new cadences are editable Markdown and their section stays collapsed across launches', async ({
+test('Changes 8: new cadences are editable Markdown and surface only in Settings across launches', async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -12,8 +12,9 @@ test('Changes 8: new cadences are editable Markdown and their section stays coll
   app.store.savePreferences({ onboarding: true });
   try {
     await page.goto('/');
-    await page.getByRole('button', { name: 'New document', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'New cadence (.md)', exact: true }).click();
+    await cadenceSettings(page);
+    await page.getByRole('button', { name: 'New cadence', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toHaveCount(0);
     const source = page.getByRole('textbox', { name: 'Markdown source', exact: true });
     await source.fill('Use the same terms throughout.');
     await expect
@@ -27,14 +28,12 @@ test('Changes 8: new cadences are editable Markdown and their section stays coll
         .getByRole('region', { name: 'Library', exact: true })
         .getByRole('button', { name: 'Untitled.md', exact: true }),
     ).toHaveCount(0);
-    const section = page.getByRole('button', { name: 'Cadences', exact: true });
-    await section.click();
-    await section.hover();
+    const nav = page.getByRole('complementary', { name: 'Navigation', exact: true });
+    await expect(nav.getByText('Cadences', { exact: true })).toHaveCount(0);
     await page.reload();
-    await expect(section).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByRole('button', { name: 'Untitled.md', exact: true })).toHaveCount(0);
-    await section.click();
-    await page.getByRole('button', { name: 'Untitled.md', exact: true }).click();
+    const cadences = await cadenceSettings(page);
+    await cadences.getByRole('button', { name: 'Untitled.md', exact: true }).click();
     await expect(source).toHaveText('Use the same terms throughout.');
   } finally {
     await app.close();

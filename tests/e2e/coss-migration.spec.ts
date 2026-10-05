@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { harness } from './harness';
+import { cadenceSettings, harness } from './harness';
 
 for (const theme of ['Light', 'Dark']) {
   test(`review diffs keep readable text contrast in ${theme}`, async ({ page }) => {
@@ -67,7 +67,6 @@ test('sidebar rows reserve visible space for their actions', async ({ page }) =>
       `Actions for folder ${folder.name}`,
       `New document in ${folder.name}`,
       `Actions for ${nested.title}`,
-      'Actions for cadence Grammar',
     ]) {
       const action = page.getByRole('button', { name, exact: true });
       const rect = await action.boundingBox();
@@ -179,6 +178,7 @@ test('cadence breadcrumbs identify only the document as current', async ({ page 
   app.store.savePreferences({ onboarding: true });
   try {
     await page.goto('/');
+    await cadenceSettings(page);
     await page.getByRole('button', { name: 'Grammar.md', exact: true }).click();
     const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb', exact: true });
     await expect(breadcrumb.locator('[aria-current="page"]')).toHaveCount(1);
