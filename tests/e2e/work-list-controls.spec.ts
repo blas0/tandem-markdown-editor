@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { palette } from '../../packages/ui/palette';
-import { harness } from './harness';
+import { cadenceSettings, harness } from './harness';
 
 test('folder color controls sit directly in the menu and support keyboard tone adjustment', async ({
   page,
@@ -212,6 +212,7 @@ test('cadence color saves stay ordered across family popups', async ({ page }) =
     }
   };
   const openFamily = async (family: string) => {
+    await cadenceSettings(page);
     await page
       .getByRole('button', { name: `Actions for cadence ${cadence.name}`, exact: true })
       .locator('..')

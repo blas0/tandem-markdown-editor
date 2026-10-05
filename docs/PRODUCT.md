@@ -35,9 +35,9 @@ Provider setup remains available after onboarding. The review toolbar owns the m
 
 ## Workspace and organization
 
-Documents and folders are organized in the sidebar. There are no Home or folder pages. Library contains Tandem-owned documents and regular folders. Symlinks contains active linked documents and linked directory roots with their existing descendants. Cadences contains review instructions and follows Symlinks. The sidebar uses one scroll container with bounded document rendering for large libraries.
+Documents and folders are organized in the sidebar. There are no Home or folder pages. Library contains Tandem-owned documents and regular folders. Symlinks contains active linked documents and linked directory roots with their existing descendants. Cadences are review instructions; they are listed in Settings and never in the sidebar. The sidebar uses one scroll container with bounded document rendering for large libraries.
 
-Library is a section, not a folder. Global document creation always places documents there. A folder's inline plus opens the same creation menu with that folder as the destination. User folders support nesting and retain their color setting. Library, Symlinks, and Cadences collapse independently and persist their state.
+Library is a section, not a folder. Global document creation always places documents there. A folder's inline plus opens the same creation menu with that folder as the destination. User folders support nesting and retain their color setting. Library and Symlinks collapse independently and persist their state.
 
 Start new documents as "Untitled" with their format extension. Titles change only through manual editing. Document and folder actions use nested menus with inline properties, destination choices, and folder color families and tone sliders. Nested color choices omit icons. Rename forms show Command+Enter to save. Document Properties opens the same actions as its sidebar row. Right-clicking sidebar items does not open actions. Tagging, tag colors, and tag search/filtering are removed.
 
@@ -45,7 +45,7 @@ Archive lists deleted documents, folders, and cadences from newest to oldest, wi
 
 ## Editor
 
-The document is centered. The left sidebar contains the theme-appropriate Tandem wordmark above Library, Symlinks, and Cadences, with Settings and Archive below. Its titlebar toggle collapses it to zero width; its launch default is visible. The toggle and native traffic lights share one horizontal centerline. New document and New folder sit in the sidebar directly below the wordmark. The document menu creates Markdown documents or Markdown cadences. Folder creation uses an inline dropdown form. Hover chevrons sit beside section and folder labels. Uncolored navigation icons inherit one light neutral tint, while explicit supported item colors replace that tint. Folder breadcrumbs remain above the document title.
+The document is centered. The left sidebar contains the theme-appropriate Tandem wordmark above Library and Symlinks, with Settings and Archive below, and no rule between the list and those two buttons. Its titlebar toggle collapses it to zero width; its launch default is visible. The toggle and native traffic lights share one horizontal centerline. New document and New folder sit in the sidebar directly below the wordmark. The document menu creates Markdown documents; cadences are created from Settings. Folder creation uses an inline dropdown form. Hover chevrons sit beside section and folder labels. Uncolored navigation icons inherit one light neutral tint, while explicit supported item colors replace that tint. Folder breadcrumbs remain above the document title.
 
 Confirmed formatting includes headings, bold, italic, underline, strikethrough, links, bulleted and numbered lists, checklists, blockquotes, inline code, fenced code blocks, simple tables, horizontal rules, embedded images, and font family, size, and color controls. Use a continuous document at a readable width. Print-style pagination, page margins, headers, and footers are not supported.
 
@@ -71,7 +71,7 @@ The user accepts or rejects each unit; resolved cards disappear while their deci
 
 ## Cadences
 
-Cadences are editable Markdown documents containing review instructions, equivalent to a SKILL.md file. Grammar, Clarity, and Natural voice ship with the app. They live in the sidebar and use the document editor; edits synchronize their review instructions. Moving a document to Cadences preserves its identity, converts its content to Markdown, and removes its folder and external-link association. Archive and restore preserve its cadence identity. Legacy preference-based cadences acquire a document when first opened.
+Cadences are editable Markdown documents containing review instructions, equivalent to a SKILL.md file. Grammar, Clarity, and Natural voice ship with the app. They are listed under Settings, Cadences, which is the only place they surface: choosing one closes Settings and opens it in the document editor, and the same view creates, renames, recolors, and archives them. Edits synchronize their review instructions. Moving a document to Cadences preserves its identity, converts its content to Markdown, and removes its folder and external-link association. Archive and restore preserve its cadence identity. Legacy preference-based cadences acquire a document when first opened.
 
 Each review snapshots its selected cadences. A stage receives the preceding stage’s output, while final suggestions remain tied to the original document for acceptance, rejection, stale detection and undo. Historic document/folder tone metadata is retained in stored records but is not used or exposed. The old base editing prompt is removed.
 

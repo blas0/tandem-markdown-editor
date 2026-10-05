@@ -296,7 +296,6 @@ export function FolderTree({
   onCreate,
   createActions,
   folderActions,
-  cadenceSection,
 }: {
   folders: Folder[];
   documents?: DocumentMeta[];
@@ -314,7 +313,6 @@ export function FolderTree({
   onCreate?: (folderId: string | null) => void;
   createActions?: (folderId: string | null) => Actions;
   folderActions?: (folder: Folder) => Actions;
-  cadenceSection?: ReactNode;
 }) {
   /**
    * Attached linked roots refuse the drag itself rather than dropping the
@@ -477,7 +475,7 @@ export function FolderTree({
       scroll.removeEventListener('scroll', measure);
       observer.disconnect();
     };
-  }, [rows.length, documents.length, cadenceSection, libraryCollapsed]);
+  }, [rows.length, documents.length, libraryCollapsed]);
   const start = Math.max(
     0,
     Math.min(Math.max(0, rows.length - 1), Math.floor(viewport.top / 28) - 8),
@@ -756,8 +754,6 @@ export function FolderTree({
         onDocument={onDocument}
         documentActions={documentActions}
       />
-      <Separator />
-      {cadenceSection}
     </>
   );
 }

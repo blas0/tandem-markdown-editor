@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { harness } from './harness';
+import { cadenceSettings, harness } from './harness';
 
-test('sidebar creation offers Markdown and cadence, and creates folders inline', async ({
+test('sidebar creation offers Markdown, Settings creates cadences, and folders are created inline', async ({
   page,
 }) => {
   const app = await harness(page);
@@ -21,7 +21,11 @@ test('sidebar creation offers Markdown and cadence, and creates folders inline',
     await expect(page.getByRole('menu')).toHaveCount(0);
     await titlebar.getByRole('button', { name: 'New document', exact: true }).click();
     await expect(page.getByRole('menuitem', { name: /rtf/i })).toHaveCount(0);
-    await page.getByRole('menuitem', { name: 'New cadence (.md)', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: /cadence/i })).toHaveCount(0);
+    await page.getByRole('menu').press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await cadenceSettings(page);
+    await page.getByRole('button', { name: 'New cadence', exact: true }).click();
     await expect(page.getByRole('textbox', { name: 'Markdown source', exact: true })).toBeVisible();
     expect(app.store.list().some((doc) => doc.cadenceId && doc.title.endsWith('.md'))).toBe(true);
     await titlebar.getByRole('button', { name: 'New document', exact: true }).click();

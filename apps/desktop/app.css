@@ -550,7 +550,10 @@ html[data-workspace-dragging="true"] .navigation [draggable] > .navigation-item 
   margin-block: var(--space-3);
   flex-shrink: 0;
 }
+/* No rule sits above the footer; the list above it ends in its scroll fade. */
 .navigation-footer {
+  margin-top: var(--space-3);
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: var(--space-2);

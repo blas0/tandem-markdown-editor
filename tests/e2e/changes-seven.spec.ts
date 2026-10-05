@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { harness } from './harness';
+import { cadenceSettings, harness } from './harness';
 
 test('Changes 7: Library owns default creation and folders offer explicit creation', async ({
   page,
@@ -70,6 +70,8 @@ test('Changes 7: Cadences can be edited, archived, restored and created from a d
     await expect.poll(() => app.store.preferences().cadences.length).toBe(4);
     expect(app.store.open(doc.id).trashedAt).toBeNull();
     expect(app.store.open(doc.id).cadenceId).toBeTruthy();
+    await expect(page.getByRole('button', { name: 'Grammar.md', exact: true })).toHaveCount(0);
+    await cadenceSettings(page);
     await page.getByRole('button', { name: 'Grammar.md', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Rename Grammar.md', exact: true }),
@@ -83,6 +85,7 @@ test('Changes 7: Cadences can be edited, archived, restored and created from a d
     await expect
       .poll(() => app.store.preferences().cadences[0].instructions)
       .toBe('Fix spelling only.');
+    await cadenceSettings(page);
     await page.getByRole('button', { name: 'Grammar.md', exact: true }).hover();
     await page.getByRole('button', { name: 'Actions for cadence Grammar', exact: true }).click();
     // Cadences use the same single surface as documents: titled sections, saved on each keystroke.
@@ -101,6 +104,7 @@ test('Changes 7: Cadences can be edited, archived, restored and created from a d
       .getByRole('button', { name: 'Move to Archive', exact: true })
       .click();
     await expect(page.getByRole('button', { name: 'Proofread.md', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Archive', exact: true }).click();
     await page
       .getByRole('listitem')
@@ -108,7 +112,8 @@ test('Changes 7: Cadences can be edited, archived, restored and created from a d
       .getByRole('button', { name: 'Restore', exact: true })
       .click();
     await expect.poll(() => app.store.preferences().cadences[0].archived).toBe(false);
-    await expect(page.getByRole('button', { name: 'Proofread.md', exact: true })).toBeVisible();
+    const cadences = await cadenceSettings(page);
+    await expect(cadences.getByRole('button', { name: 'Proofread.md', exact: true })).toBeVisible();
   } finally {
     await app.close();
   }

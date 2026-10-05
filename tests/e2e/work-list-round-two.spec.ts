@@ -7,7 +7,7 @@ async function bounds(locator: Locator) {
   return box;
 }
 
-test('Library lists loose documents below its folders and cadences follow the rule', async ({
+test('Library lists loose documents below its folders and the sidebar omits cadences', async ({
   page,
 }) => {
   const app = await harness(page);
@@ -32,10 +32,8 @@ test('Library lists loose documents below its folders and cadences follow the ru
     expect(loose.y).toBeGreaterThan(alpha.y);
     const linked = await bounds(page.getByRole('button', { name: 'Linked note.md', exact: true }));
     expect(linked.y).toBeGreaterThan(loose.y);
-    const rule = await bounds(nav.locator('.nav-scroll [data-slot="separator"]').first());
-    const cadences = await bounds(nav.getByRole('region', { name: 'Cadences', exact: true }));
-    expect(rule.y).toBeGreaterThan((await bounds(tree)).y);
-    expect(cadences.y).toBeGreaterThan(rule.y);
+    await expect(nav.getByRole('region', { name: 'Cadences', exact: true })).toHaveCount(0);
+    await expect(nav.locator('[data-slot="separator"]')).toHaveCount(0);
     await expect(nav.locator('.nav-scroll')).not.toHaveCSS('mask-image', 'none');
   } finally {
     await app.close();

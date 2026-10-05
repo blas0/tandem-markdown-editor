@@ -229,7 +229,7 @@ The document remains 16px/26px with a 66ch measure. Headings preserve user docum
 
 ## Layout
 
-The workspace has Library, Symlinks, and Cadences navigation, a writing area, and a floating canvas review toolbar. Library contains Tandem-owned documents and regular folders. Symlinks projects active linked documents and linked directory roots from `linkedPath`, preserving their hierarchy and actions. Navigation uses a shared scroll container and 28px virtualized rows. All three sections preserve collapse state; label-adjacent chevrons expose expansion controls.
+The workspace has Library and Symlinks navigation, a writing area, and a floating canvas review toolbar. Library contains Tandem-owned documents and regular folders. Symlinks projects active linked documents and linked directory roots from `linkedPath`, preserving their hierarchy and actions. Navigation uses a shared scroll container and 28px virtualized rows. Both sections preserve collapse state; cadence documents are listed in Settings, not the sidebar; label-adjacent chevrons expose expansion controls.
 
 Default layout tokens are 216px navigation, 760px maximum document width, and a 44px titlebar. Navigation resizing persists its selected width. The native traffic lights and navigation toggle share one centerline. The document header and formatting toolbar meet at one continuous border in both themes and at wide and narrow widths. The document stays centered in the remaining writing area. Product CSS responds at 1100px, with a 700px onboarding-height rule. Coss responsive control sizing begins at Tailwind's 40rem `sm` breakpoint.
 
@@ -258,7 +258,7 @@ Lisse, its SVG border painter, its PostCSS adapter, and the old 28px control-rad
 | `packages/ui/tokens.css`, `fonts.css` | Coss semantic tokens, layout aliases, bundled font declarations |
 | `packages/ui/ui.css` | Product layout, resizing, icon transitions, and retained indicators |
 | `apps/desktop/main.tsx`, `app.css`, `workspace.css` | Shell, settings, titlebar, dialogs, and workspace composition |
-| `packages/ui/folder-tree.tsx`, `cadence-navigation.tsx`, `archive.tsx` | Navigation, cadence operations, archive filtering and restoration |
+| `packages/ui/folder-tree.tsx`, `cadence-list.tsx`, `archive.tsx` | Navigation, cadence operations, archive filtering and restoration |
 | `packages/ui/compositions.tsx`, `canvas-toolbar.tsx` | Provider/model settings and canvas review controls |
 | `packages/editor/` | CodeMirror, Markdown formatting controls, content presentation, Find, and annotations |
 

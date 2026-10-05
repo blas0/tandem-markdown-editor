@@ -62,7 +62,7 @@ test('linked document actions work with pointer and keyboard input', async ({ pa
   }
 });
 
-test('sidebar sections expand and collapse, with a separator before Cadences', async ({ page }) => {
+test('sidebar sections expand and collapse, and Cadences is not among them', async ({ page }) => {
   const app = await harness(page);
   app.store.savePreferences({ onboarding: true });
   app.store.create({ title: 'Loose document' });
@@ -72,14 +72,12 @@ test('sidebar sections expand and collapse, with a separator before Cadences', a
   app.store.create({ title: 'Nested linked.md', folderId: 'nested', format: 'md' });
   try {
     await page.goto('/');
-    await expect(page.locator('[data-slot="separator"] + .cadence-navigation')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Cadences', exact: true })).toHaveCount(0);
     const librarySection = page.getByRole('region', { name: 'Library', exact: true });
     const symlinksSection = page.getByRole('region', { name: 'Symlinks', exact: true });
-    const cadencesSection = page.getByRole('region', { name: 'Cadences', exact: true });
     for (const [label, section] of [
       ['Library', librarySection],
       ['Symlinks', symlinksSection],
-      ['Cadences', cadencesSection],
     ] as const) {
       const toggle = section.getByRole('button', { name: label, exact: true });
       await expect(toggle.locator('.t-icon-swap')).toHaveAttribute('data-state', 'a');
@@ -87,12 +85,9 @@ test('sidebar sections expand and collapse, with a separator before Cadences', a
     }
     const libraryBounds = await librarySection.boundingBox();
     const symlinkBounds = await symlinksSection.boundingBox();
-    const cadenceBounds = await cadencesSection.boundingBox();
-    if (!libraryBounds || !symlinkBounds || !cadenceBounds)
-      throw new Error('Missing sidebar section');
+    if (!libraryBounds || !symlinkBounds) throw new Error('Missing sidebar section');
     expect(symlinkBounds.y).toBeGreaterThan(libraryBounds.y);
-    expect(cadenceBounds.y).toBeGreaterThan(symlinkBounds.y);
-    for (const label of ['Library', 'Cadences']) {
+    for (const label of ['Library']) {
       const section = page.getByRole('region', { name: label, exact: true });
       const button = section.getByRole('button', { name: label, exact: true });
       const content = section.locator('.nav-document-row').first();

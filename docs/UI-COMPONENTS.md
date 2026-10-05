@@ -35,7 +35,7 @@ Plain controls import directly from `packages/ui/coss/<component>`. `primitives.
 | --- | --- |
 | Shell | `App` in `apps/desktop/main.tsx`: titlebar, navigation, responsive overlays, application dialogs |
 | Sidebar | `FolderTree` in `packages/ui/folder-tree.tsx`: collapsible Library and Symlinks sections, virtualized rows, linked and owned folder hierarchy, creation menus, and single-surface action menus (`ActionMenuItem.heading` renders a titled form section) |
-| Cadences | `CadenceNavigation` in `packages/ui/cadence-navigation.tsx`: collapsible cadence section and rows |
+| Cadences | `CadenceList` in `packages/ui/cadence-list.tsx`: cadence rows in the Settings Cadences view |
 | Archive | `Archive` in `packages/ui/archive.tsx`: sorted archive list, item-type filter, restore, clear confirmation |
 | Review | `CanvasToolbar` in `packages/ui/canvas-toolbar.tsx`: Annotate, combined model and effort selection, fast-mode, and cadence invocation controls; inline suggestions and header Review actions remain in the editor workspace |
 | Provider configuration | `ProviderConnectionCard`, `ModelPreferenceFieldset` in `packages/ui/compositions.tsx` |
@@ -86,4 +86,4 @@ Retained exceptions are product behavior and assets: sidebar resizing and persis
 
 ## Work-list controls
 
-Library, Symlinks, and Cadences collapse independently and persist. Hover chevrons sit beside section and folder labels. Library owns regular folders; Symlinks owns active linked documents and directory roots without duplicating storage. The shared navigation icon tint applies only when an item has no explicit color. Nested color families omit icons and open a tone slider. Rename forms show the keyboard save hint. Document Properties uses the same actions as its sidebar row, including cadence actions. Tag controls, metadata contracts, settings, and search/filter behavior are removed; legacy document reads preserve document content and identity.
+Library and Symlinks collapse independently and persist. Hover chevrons sit beside section and folder labels. Library owns regular folders; Symlinks owns active linked documents and directory roots without duplicating storage. The shared navigation icon tint applies only when an item has no explicit color. Nested color families omit icons and open a tone slider. Rename forms show the keyboard save hint. Document Properties uses the same actions as its sidebar row, including cadence actions. Tag controls, metadata contracts, settings, and search/filter behavior are removed; legacy document reads preserve document content and identity.

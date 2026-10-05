@@ -13,10 +13,7 @@
   color: var(--muted-foreground);
   font-size: var(--text-sm);
 }
-.cadence-navigation {
-  margin-block: var(--space-2);
-}
-.cadence-navigation .nav-document-row {
+.cadence-list .nav-document-row {
   display: flex;
   align-items: center;
   min-height: 28px;
