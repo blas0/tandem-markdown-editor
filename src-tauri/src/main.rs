@@ -13,6 +13,7 @@ use tauri::menu::{
 };
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_updater::UpdaterExt;
 
 type Replies = Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>;
 struct Helper {
@@ -24,6 +25,8 @@ struct Backend {
     helper: Mutex<Option<Helper>>,
     grants: Mutex<HashMap<String, (String, std::time::Instant)>>,
     open_requests: Mutex<VecDeque<OpenRequest>>,
+    /// The release found by the last update check, kept for the install that follows.
+    update: Mutex<Option<tauri_plugin_updater::Update>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -705,6 +708,79 @@ async fn save_recovery(
     .await
     .map_err(|e| e.to_string())?
 }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AvailableUpdate {
+    version: String,
+    current_version: String,
+}
+
+/// Whole percent of a download, when the server reported its size.
+fn download_percent(received: u64, total: Option<u64>) -> Option<u64> {
+    let total = total.filter(|total| *total > 0)?;
+    Some((received.saturating_mul(100) / total).min(100))
+}
+
+/// Asks the release feed for a newer Tandem. Development builds never update themselves.
+#[tauri::command]
+async fn update_check(app: tauri::AppHandle) -> Result<Option<AvailableUpdate>, String> {
+    if cfg!(debug_assertions) {
+        return Ok(None);
+    }
+    let update = app
+        .updater()
+        .map_err(|e| e.to_string())?
+        .check()
+        .await
+        .map_err(|e| e.to_string())?;
+    let available = update.as_ref().map(|update| AvailableUpdate {
+        version: update.version.clone(),
+        current_version: update.current_version.clone(),
+    });
+    *app.state::<Backend>()
+        .update
+        .lock()
+        .map_err(|e| e.to_string())? = update;
+    Ok(available)
+}
+
+/// Downloads the found release, verifies its signature and replaces the app bundle in place.
+/// The running app keeps going until `update_restart`.
+#[tauri::command]
+async fn update_install(app: tauri::AppHandle) -> Result<(), String> {
+    let update = app
+        .state::<Backend>()
+        .update
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone()
+        .ok_or("No update is available")?;
+    let progress = app.clone();
+    let mut received = 0u64;
+    let mut reported = None;
+    update
+        .download_and_install(
+            move |chunk, total| {
+                received += chunk as u64;
+                let percent = download_percent(received, total);
+                // Chunks arrive by the thousand; the renderer only needs each new percent.
+                if percent != reported {
+                    reported = percent;
+                    let _ = progress.emit("tandem-update-progress", json!({ "percent": percent }));
+                }
+            },
+            || {},
+        )
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Restarts into the installed update through the normal quit path, so open documents flush.
+#[tauri::command]
+fn update_restart(app: tauri::AppHandle) {
+    app.request_restart();
+}
+
 fn main() {
     let startup_cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let startup_requests = requests_from_args(std::env::args().skip(1), &startup_cwd);
@@ -791,10 +867,12 @@ fn main() {
             let _ = app.emit("tandem-menu", event.id().as_ref());
         })
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Backend {
             helper: Mutex::new(None),
             grants: Mutex::new(startup_grants),
             open_requests: Mutex::new(startup_requests.into()),
+            update: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             rpc,
@@ -811,7 +889,10 @@ fn main() {
             save_recovery,
             open_setup,
             open_document_link,
-            set_app_icon
+            set_app_icon,
+            update_check,
+            update_install,
+            update_restart
         ])
         .build(tauri::generate_context!())
         .expect("Could not launch Tandem")
@@ -860,6 +941,14 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn download_percent_needs_a_known_size_and_never_passes_one_hundred() {
+        assert_eq!(download_percent(0, Some(200)), Some(0));
+        assert_eq!(download_percent(50, Some(200)), Some(25));
+        assert_eq!(download_percent(400, Some(200)), Some(100));
+        assert_eq!(download_percent(50, None), None);
+        assert_eq!(download_percent(50, Some(0)), None);
+    }
     #[test]
     fn native_open_requests_accept_markdown_urls_relative_paths_and_folders() {
         let root =

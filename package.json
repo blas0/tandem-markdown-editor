@@ -1,6 +1,6 @@
 {
   "name": "tandem",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -21,6 +21,7 @@
     "build": "bun run scripts/build.ts",
     "build:desktop": "bun run build && tauri build",
     "tauri": "tauri",
+    "release": "bun run scripts/release.ts",
     "validate": "bun run scripts/validate.ts",
     "validate:quick": "bun run scripts/validate.ts --quick"
   },

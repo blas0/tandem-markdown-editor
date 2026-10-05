@@ -122,6 +122,7 @@ import {
   splitPane,
 } from './panes';
 import { SaveQueue } from './save-queue';
+import { UpdateButton } from './update';
 import './app.css';
 import './workspace.css';
 
@@ -1122,6 +1123,7 @@ function App() {
                         <Trash2 size={15} />
                       </IconButton>
                     )}
+                    {!dragItem && <UpdateButton onError={reportError} />}
                   </div>
                 </aside>
               </ResizablePanel>

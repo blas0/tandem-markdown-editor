@@ -35,6 +35,7 @@ Plain controls import directly from `packages/ui/coss/<component>`. `primitives.
 | --- | --- |
 | Shell | `App` in `apps/desktop/main.tsx`: titlebar, navigation, responsive overlays, application dialogs |
 | Sidebar | `FolderTree` in `packages/ui/folder-tree.tsx`: collapsible Library and Symlinks sections, virtualized rows, linked and owned folder hierarchy, creation menus, and single-surface action menus (`ActionMenuItem.heading` renders a titled form section) |
+| Updates | `UpdateButton` in `apps/desktop/update.tsx`: sidebar footer action that appears for a newer release, then downloads, installs, and restarts |
 | Cadences | `CadenceList` in `packages/ui/cadence-list.tsx`: cadence rows in the Settings Cadences view |
 | Archive | `Archive` in `packages/ui/archive.tsx`: sorted archive list, item-type filter, restore, clear confirmation |
 | Review | `CanvasToolbar` in `packages/ui/canvas-toolbar.tsx`: Annotate, combined model and effort selection, fast-mode, and cadence invocation controls; inline suggestions and header Review actions remain in the editor workspace |
