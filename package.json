@@ -36,6 +36,7 @@
     "@codemirror/view": "^6.43.9",
     "@lezer/common": "^1.5.2",
     "@lisse/react": "^0.7.2",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.2",
@@ -82,6 +83,7 @@
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^6.1.1",
     "agentation": "^3.0.2",
+    "happy-dom": "^21.0.4",
     "jsdom": "^30.0.1",
     "postcss": "^8.5.26",
     "remark": "^15.0.1",
@@ -90,14 +92,16 @@
     "remark-preset-lint-recommended": "^7.0.1",
     "typescript": "^7.0.2",
     "unified": "^11.0.5",
-    "vite": "^8.2.2",
-    "vitest": "^4.1.11"
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12"
   },
   "overrides": {
-    "fast-uri": "3.1.8",
-    "hono": "4.13.7",
-    "ip-address": "10.7.1",
-    "qs": "6.16.0",
-    "undici": "8.10.2"
+    "body-parser": "2.4.0",
+    "fast-uri": "3.1.9",
+    "hono": "4.13.11",
+    "ip-address": "10.7.4",
+    "qs": "6.16.1",
+    "undici": "8.12.2",
+    "zod": "4.6.6"
   }
 }

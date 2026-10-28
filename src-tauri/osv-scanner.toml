@@ -11,3 +11,38 @@ reason = "glib 0.20.0 is the fixed version and is not installable: tauri 2 requi
 id = "RUSTSEC-2024-0370"
 ignoreUntil = 2027-01-03
 reason = "proc-macro-error is unmaintained and has no fixed version. Reached only through glib-macros and gtk3-macros in the Linux GTK stack; this app is built for macOS only, and neither macOS target compiles it."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0369"
+ignoreUntil = 2027-01-26
+reason = "Dev only. zip 9.0.0 is the fixed version and is not installable: tauri-plugin-updater 2.12.0, the newest release, requires zip ^4. The updater pulls zip in only on Windows; this app is built for macOS only, and neither macOS target compiles it."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0367"
+ignoreUntil = 2027-01-26
+reason = "Dev only. zip 9.0.0 is the fixed version and is not installable: tauri-plugin-updater 2.12.0, the newest release, requires zip ^4. The updater pulls zip in only on Windows; this app is built for macOS only, and neither macOS target compiles it."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0368"
+ignoreUntil = 2027-01-26
+reason = "Dev only. zip 9.0.0 is the fixed version and is not installable: tauri-plugin-updater 2.12.0, the newest release, requires zip ^4. The updater pulls zip in only on Windows; this app is built for macOS only, and neither macOS target compiles it."
+
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+ignoreUntil = 2027-01-26
+reason = "Dev only. block-buffer 0.12.1 is the fixed version and is not installable: digest 0.10.7 requires block-buffer ^0.10, which has no fixed release. On macOS it is reached only through sha2 in tauri-codegen, inside the tauri-macros proc-macro, which runs at compile time."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0371"
+ignoreUntil = 2027-01-26
+reason = "Dev only. zbus_names is unmaintained and has no fixed version. Reached only through zbus in tauri-plugin-opener and tauri-plugin-single-instance, which use it on Linux; this app is built for macOS only, and neither macOS target compiles it."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0370"
+ignoreUntil = 2027-01-26
+reason = "Dev only. zvariant is unmaintained and has no fixed version. Reached only through zbus in tauri-plugin-opener and tauri-plugin-single-instance, which use it on Linux; this app is built for macOS only, and neither macOS target compiles it."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0372"
+ignoreUntil = 2027-01-26
+reason = "Dev only. zvariant_derive is unmaintained and has no fixed version. Reached only through zvariant and zbus in tauri-plugin-opener and tauri-plugin-single-instance, which use it on Linux; this app is built for macOS only, and neither macOS target compiles it."
