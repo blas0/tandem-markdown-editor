@@ -5,12 +5,12 @@
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0429"
 ignoreUntil = 2027-01-03
-reason = "glib 0.20.0 is the fixed version and is not installable: tauri 2 requires gtk ^0.18, which requires glib ^0.18. glib belongs to the Linux GTK stack; this app is built for macOS only, and neither macOS target compiles it."
+reason = "Dev only. glib 0.20.0 is the fixed version and is not installable: tauri 2 requires gtk ^0.18, which requires glib ^0.18. glib belongs to the Linux GTK stack; this app is built for macOS only, and neither macOS target compiles it."
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0370"
 ignoreUntil = 2027-01-03
-reason = "proc-macro-error is unmaintained and has no fixed version. Reached only through glib-macros and gtk3-macros in the Linux GTK stack; this app is built for macOS only, and neither macOS target compiles it."
+reason = "Dev only. proc-macro-error is unmaintained and has no fixed version. Reached only through glib-macros and gtk3-macros in the Linux GTK stack; this app is built for macOS only, and neither macOS target compiles it."
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0369"
