@@ -44,7 +44,7 @@ if (process.arch !== 'arm64' || process.platform !== 'darwin')
   throw new Error('This build currently targets Apple Silicon Macs');
 const version = (await readFile('.nvmrc', 'utf8')).trim(),
   archive = `node-v${version}-darwin-arm64.tar.gz`,
-  expected = '3f624ab0d774553c0d28b968e141d8c676a35a2811fb0b7b356ba9cbdce15f74';
+  expected = 'd38bd5e5a2ddce6bbb5ce45e46e208337da4d51fffe611e567fd32073d6439f6';
 await mkdir('.tandem-dev', { recursive: true });
 const cached = join('.tandem-dev', archive);
 let bytes: Buffer;
