@@ -27,7 +27,7 @@ bun run dev
 
 ## Checks
 
-`bun run validate` runs the local gate on Node 26.3.1, the version the app bundles. `.nvmrc` names it: run `nvm install` once, and validation finds it even when your shell uses another Node. The individual checks are also available:
+`bun run validate` runs the local gate on Node 26.13.0, the version the app bundles. `.nvmrc` names it: run `nvm install` once, and validation finds it even when your shell uses another Node. The individual checks are also available:
 
 ```sh
 bun run typecheck
@@ -48,7 +48,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 bun run build:desktop
 ```
 
-The bundle is written to `src-tauri/target/release/bundle/macos/Tandem.app`. The build downloads a SHA-256-pinned Node 26.3.1 runtime from nodejs.org and bundles the helper service with the app. The result is unsigned and not notarized.
+The bundle is written to `src-tauri/target/release/bundle/macos/Tandem.app`. The build downloads a SHA-256-pinned Node 26.13.0 runtime from nodejs.org and bundles the helper service with the app. The result is unsigned and not notarized.
 
 ## Releases
 
