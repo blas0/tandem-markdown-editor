@@ -26,3 +26,8 @@ reason = "Dev only. zvariant is unmaintained and has no fixed version. Reached o
 id = "RUSTSEC-2026-0372"
 ignoreUntil = 2027-01-26
 reason = "Dev only. zvariant_derive is unmaintained and has no fixed version. Reached only through zvariant and zbus in tauri-plugin-opener and tauri-plugin-single-instance, which use it on Linux; this app is built for macOS only, and neither macOS target compiles it."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0543"
+ignoreUntil = 2027-02-16
+reason = "Dev only. chrono is unmaintained and has no fixed version. It is in Cargo.lock only as an optional dependency of serde_with (through tauri-utils) whose feature nothing enables: cargo tree -i chrono --target all finds no dependent, so no target compiles it."
